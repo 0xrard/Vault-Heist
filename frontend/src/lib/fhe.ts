@@ -171,28 +171,31 @@ export async function currentChainId(): Promise<bigint | null> {
   return (await provider.getNetwork()).chainId;
 }
 
-// Ubah error mentah (wallet/relayer/kontrak) menjadi pesan yang bersih untuk UI
+// Ubah error mentah (wallet/relayer/kontrak) menjadi pesan yang bersih untuk UI.
+// Pesan ramah selalu disertai detail asli (dipangkas) agar penyebab sebenarnya
+// tetap terlihat di banner tanpa perlu membuka console browser.
 export function friendlyError(err: any): string {
   const code = err?.code ?? err?.info?.error?.code;
   const msg = String(err?.shortMessage ?? err?.reason ?? err?.message ?? err ?? "");
+  const detail = msg ? ` (detail: ${msg.length > 140 ? msg.slice(0, 140) + "…" : msg})` : "";
 
   if (code === "ACTION_REJECTED" || code === 4001 || /user rejected|user denied/i.test(msg)) {
     return "Ditolak di wallet. Transaksi/tanda tangan dibatalkan — tidak ada yang terkirim.";
   }
   if (/insufficient funds/i.test(msg)) {
-    return "Saldo Sepolia ETH tidak cukup untuk gas. Isi dulu dari faucet Sepolia, lalu coba lagi.";
+    return "Saldo Sepolia ETH tidak cukup untuk gas. Isi dulu dari faucet Sepolia, lalu coba lagi." + detail;
   }
   if (/missing revert data|CALL_EXCEPTION/i.test(msg)) {
-    return "Node RPC jaringan Sepolia di wallet-mu tidak menemukan kontrak ini. Periksa URL RPC Sepolia di MetaMask (Settings → Networks → Sepolia) atau coba lagi sebentar.";
+    return "Node RPC jaringan Sepolia di wallet-mu tidak menemukan kontrak ini. Periksa URL RPC Sepolia di MetaMask (Settings → Networks → Sepolia) atau coba lagi sebentar." + detail;
   }
   if (/MetaMask tidak ditemukan/i.test(msg)) {
     return msg;
   }
   if (/relayer|fetch|network|timeout|timed out/i.test(msg)) {
-    return "Gangguan jaringan/relayer Zama. Tunggu beberapa detik lalu coba lagi.";
+    return "Gangguan jaringan/relayer Zama. Tunggu beberapa detik lalu coba lagi." + detail;
   }
-  if (/Match tidak aktif/i.test(msg)) return "Match ini sudah selesai atau belum aktif.";
-  if (/Sudah scout atau commit/i.test(msg)) return "Kamu sudah memakai Scout (atau sudah commit) di ronde ini.";
-  if (/Bukan peserta match/i.test(msg)) return "Wallet ini bukan peserta match tersebut.";
+  if (/Match tidak aktif/i.test(msg)) return "Match ini sudah selesai atau belum aktif." + detail;
+  if (/Sudah scout atau commit/i.test(msg)) return "Kamu sudah memakai Scout (atau sudah commit) di ronde ini." + detail;
+  if (/Bukan peserta match/i.test(msg)) return "Wallet ini bukan peserta match tersebut." + detail;
   return msg.length > 220 ? msg.slice(0, 220) + "…" : msg || "Terjadi kesalahan tak dikenal.";
 }

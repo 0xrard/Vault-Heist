@@ -3,7 +3,7 @@ import { CheckCircle2, Loader2, Lock, RefreshCw, Send } from "lucide-react";
 import type { Signer } from "ethers";
 import VaultCard, { type ScoutedStat } from "./VaultCard";
 import { encryptBids, friendlyError, publicDecryptHandles, userDecryptHandle } from "../lib/fhe";
-import { CONTRACT_ADDRESS, fetchMatch, getGameContract, type MatchInfo, type RoundRecord } from "../lib/contracts";
+import { CONTRACT_ADDRESS, fetchMatch, getGameContract, getGameReadContract, type MatchInfo, type RoundRecord } from "../lib/contracts";
 
 interface Props {
   signer: Signer;
@@ -35,6 +35,7 @@ export default function GameArena({
   const [waitingOpp, setWaitingOpp] = useState(false);
 
   const contract = useMemo(() => getGameContract(signer), [signer]);
+  const readContract = useMemo(() => getGameReadContract(), []);
   const maxBudget = scouted ? BASE_BUDGET - 1 : BASE_BUDGET;
   const total = bids[0] + bids[1] + bids[2];
   const overBudget = total > maxBudget;
@@ -48,7 +49,7 @@ export default function GameArena({
       try {
         const rows: { loot: string; alarm: string }[] = [];
         for (let i = 0; i < 3; i++) {
-          const [loot, alarm] = await contract.getVaultHandles(matchId, round, i);
+          const [loot, alarm] = await readContract.getVaultHandles(matchId, round, i);
           rows.push({ loot, alarm });
         }
         if (!cancelled) setHandles(rows);
@@ -59,7 +60,7 @@ export default function GameArena({
     return () => {
       cancelled = true;
     };
-  }, [contract, matchId, round]);
+  }, [readContract, matchId, round]);
 
   const phase = waitingOpp || busy ? 3 : scouted || total !== 10 ? 2 : 1;
 
@@ -78,7 +79,7 @@ export default function GameArena({
       const tx = await contract.scoutVault(matchId, idx, kind === "alarm");
       await tx.wait();
       setStep("Sign the EIP-712 request to privately decrypt this stat…");
-      const [lootHandle, alarmHandle] = await contract.getVaultHandles(matchId, round, idx);
+      const [lootHandle, alarmHandle] = await readContract.getVaultHandles(matchId, round, idx);
       const value = await userDecryptHandle(
         kind === "alarm" ? alarmHandle : lootHandle,
         CONTRACT_ADDRESS,
@@ -96,14 +97,14 @@ export default function GameArena({
   // Setelah commit: baca ulang match; bila ronde sudah beres, dekripsi publik hasilnya
   const collectResolution = useCallback(
     async (playedRound: number): Promise<boolean> => {
-      const updated = await fetchMatch(contract, matchId);
+      const updated = await fetchMatch(readContract, matchId);
       const resolved = updated.currentRound !== playedRound || updated.state === 2;
       if (!resolved) return false;
 
       setStep("Decrypting public round results (alarms & scores)…");
       const alarmHandles: string[] = [];
       for (let i = 0; i < 3; i++) {
-        const [, , alarmTripped] = await contract.getVaultHandles(matchId, playedRound, i);
+        const [, , alarmTripped] = await readContract.getVaultHandles(matchId, playedRound, i);
         alarmHandles.push(alarmTripped);
       }
       const clear = await publicDecryptHandles([

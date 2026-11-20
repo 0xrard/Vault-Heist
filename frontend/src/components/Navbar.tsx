@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Coins, Eye, EyeOff, Loader2, Lock, Vault, Wallet } from "lucide-react";
 import type { Signer } from "ethers";
-import { getTokenContract } from "../lib/contracts";
+import { getTokenContract, getTokenReadContract, TOKEN_ADDRESS } from "../lib/contracts";
 import { friendlyError, isZeroHandle, userDecryptHandle } from "../lib/fhe";
 
 interface Props {
@@ -31,8 +31,8 @@ export default function Navbar({
 
   async function handleReveal() {
     if (!signer) return;
-    const token = getTokenContract(signer);
-    if (!token) return;
+    const token = getTokenReadContract();
+    if (!token || !TOKEN_ADDRESS) return;
     setRevealing(true);
     try {
       const userAddress = await signer.getAddress();
@@ -42,8 +42,7 @@ export default function Navbar({
       if (isZeroHandle(handle)) {
         setLoot(0n);
       } else {
-        const tokenAddress = await token.getAddress();
-        setLoot(await userDecryptHandle(handle, tokenAddress, signer));
+        setLoot(await userDecryptHandle(handle, TOKEN_ADDRESS, signer));
       }
       setShownKey(lootRefreshKey);
     } catch (err: any) {

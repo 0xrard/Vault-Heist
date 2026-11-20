@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Coins, Eye, Loader2, Play, Trophy } from "lucide-react";
 import type { Signer } from "ethers";
-import { getTokenContract } from "../lib/contracts";
+import { getTokenContract, getTokenReadContract, TOKEN_ADDRESS } from "../lib/contracts";
 import { friendlyError, isZeroHandle, userDecryptHandle } from "../lib/fhe";
 
 interface Props {
@@ -32,8 +32,8 @@ export default function MatchSummaryModal({
   const draw = scoreYou === scoreOpp;
 
   async function handleReveal() {
-    const token = getTokenContract(signer);
-    if (!token) return;
+    const token = getTokenReadContract();
+    if (!token || !TOKEN_ADDRESS) return;
     setRevealing(true);
     try {
       const userAddress = await signer.getAddress();
@@ -41,7 +41,7 @@ export default function MatchSummaryModal({
       if (isZeroHandle(handle)) {
         setLoot(0n);
       } else {
-        setLoot(await userDecryptHandle(handle, await token.getAddress(), signer));
+        setLoot(await userDecryptHandle(handle, TOKEN_ADDRESS, signer));
       }
       onLootRevealed();
     } catch (err: any) {

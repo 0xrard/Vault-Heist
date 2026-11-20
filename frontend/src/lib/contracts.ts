@@ -1,17 +1,34 @@
-import { Contract, type Signer } from "ethers";
+import { Contract, JsonRpcProvider, type Signer } from "ethers";
 import VaultHeistArtifact from "../abi/VaultHeist.json";
 import HeistLootTokenArtifact from "../abi/HeistLootToken.json";
 
 export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as string;
 export const TOKEN_ADDRESS = import.meta.env.VITE_TOKEN_ADDRESS as string | undefined;
 
+// Semua pembacaan onchain (view calls) lewat RPC publik yang terverifikasi,
+// BUKAN lewat RPC bawaan MetaMask user — RPC kustom/bawaan wallet yang
+// bermasalah membuat eth_call mengembalikan data kosong ("missing revert
+// data") seolah kontrak tidak ada. Wallet hanya dipakai untuk tanda tangan
+// dan pengiriman transaksi.
+export const SEPOLIA_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";
+export const readProvider = new JsonRpcProvider(SEPOLIA_RPC_URL);
+
 export function getGameContract(signer: Signer): Contract {
   return new Contract(CONTRACT_ADDRESS, VaultHeistArtifact.abi, signer);
+}
+
+export function getGameReadContract(): Contract {
+  return new Contract(CONTRACT_ADDRESS, VaultHeistArtifact.abi, readProvider);
 }
 
 export function getTokenContract(signer: Signer): Contract | null {
   if (!TOKEN_ADDRESS) return null;
   return new Contract(TOKEN_ADDRESS, HeistLootTokenArtifact.abi, signer);
+}
+
+export function getTokenReadContract(): Contract | null {
+  if (!TOKEN_ADDRESS) return null;
+  return new Contract(TOKEN_ADDRESS, HeistLootTokenArtifact.abi, readProvider);
 }
 
 export interface MatchInfo {

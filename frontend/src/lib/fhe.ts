@@ -182,6 +182,9 @@ export function friendlyError(err: any): string {
   if (/insufficient funds/i.test(msg)) {
     return "Saldo Sepolia ETH tidak cukup untuk gas. Isi dulu dari faucet Sepolia, lalu coba lagi.";
   }
+  if (/missing revert data|CALL_EXCEPTION/i.test(msg)) {
+    return "Node RPC jaringan Sepolia di wallet-mu tidak menemukan kontrak ini. Periksa URL RPC Sepolia di MetaMask (Settings → Networks → Sepolia) atau coba lagi sebentar.";
+  }
   if (/MetaMask tidak ditemukan/i.test(msg)) {
     return msg;
   }

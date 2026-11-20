@@ -16,6 +16,7 @@ import {
 import {
   fetchMatch,
   getGameContract,
+  getGameReadContract,
   type MatchInfo,
   type RoundRecord,
 } from "./lib/contracts";
@@ -108,7 +109,7 @@ export default function App() {
       const id = Number(await contract.nextMatchId());
       const tx = await contract.createMatch(true);
       await tx.wait();
-      const info = await fetchMatch(contract, id);
+      const info = await fetchMatch(getGameReadContract(), id);
       enterArena(id, info, 1, { you: 0, opp: 0 }, []);
     } catch (err: any) {
       showError(friendlyError(err));
@@ -137,9 +138,8 @@ export default function App() {
     if (waitingMatchId === null) return;
     setBusy("enter");
     try {
-      const s = await ensureWallet();
-      const contract = getGameContract(s);
-      const info = await fetchMatch(contract, waitingMatchId);
+      await ensureWallet();
+      const info = await fetchMatch(getGameReadContract(), waitingMatchId);
       if (info.state === 0) {
         showError("Opponent belum join. Bagikan Match ID-nya, lalu cek lagi.");
         return;
@@ -159,7 +159,7 @@ export default function App() {
       const contract = getGameContract(s);
       const tx = await contract.joinMatch(id);
       await tx.wait();
-      const info = await fetchMatch(contract, id);
+      const info = await fetchMatch(getGameReadContract(), id);
       enterArena(id, info, 2, { you: 0, opp: 0 }, []);
     } catch (err: any) {
       showError(friendlyError(err));
@@ -173,7 +173,7 @@ export default function App() {
     try {
       const s = await ensureWallet();
       const me = (await s.getAddress()).toLowerCase();
-      const contract = getGameContract(s);
+      const contract = getGameReadContract();
       const info = await fetchMatch(contract, id);
       const player: 1 | 2 | null =
         info.player1.toLowerCase() === me ? 1 : info.player2.toLowerCase() === me ? 2 : null;

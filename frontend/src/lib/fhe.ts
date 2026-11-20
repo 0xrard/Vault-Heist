@@ -1,20 +1,20 @@
-import {
-  initSDK,
-  createInstance,
-  SepoliaConfig,
-  type FhevmInstance,
-} from "@zama-fhe/relayer-sdk/bundle";
 import { BrowserProvider, type Signer } from "ethers";
+import type { FhevmInstance } from "@zama-fhe/relayer-sdk/web";
 
 let fheInstance: FhevmInstance | null = null;
 
 // 1. Inisialisasi instance FHEVM di jaringan Sepolia
+// SDK dimuat secara lazy (dynamic import): impor statis dari paket ini
+// menyebabkan circular-dependency crash saat evaluasi modul di browser
+// ("Cannot read properties of undefined (reading 'initSDK')") yang membuat
+// seluruh aplikasi gagal render (halaman kosong).
 export async function getFheInstance(): Promise<FhevmInstance> {
   if (fheInstance) return fheInstance;
 
-  await initSDK(); // Memuat modul WASM TFHE
-  fheInstance = await createInstance({
-    ...SepoliaConfig,
+  const sdk = await import("@zama-fhe/relayer-sdk/web");
+  await sdk.initSDK(); // Memuat modul WASM TFHE
+  fheInstance = await sdk.createInstance({
+    ...sdk.SepoliaConfig,
     network: (window as any).ethereum,
   });
 

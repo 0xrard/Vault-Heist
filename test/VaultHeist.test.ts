@@ -38,8 +38,12 @@ describe("VaultHeist (FHEVM)", function () {
     }
 
     [alice, bob, eve] = await ethers.getSigners();
+    const tokenFactory = await ethers.getContractFactory("HeistLootToken");
+    const lootToken = await tokenFactory.deploy();
+    await lootToken.waitForDeployment();
     const factory = await ethers.getContractFactory("VaultHeist");
-    vaultHeist = (await factory.deploy()) as unknown as VaultHeist;
+    vaultHeist = (await factory.deploy(await lootToken.getAddress())) as unknown as VaultHeist;
+    await (await lootToken.setGameContract(await vaultHeist.getAddress())).wait();
     await vaultHeist.waitForDeployment();
     contractAddress = await vaultHeist.getAddress();
   });

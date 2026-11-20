@@ -1,9 +1,12 @@
 # Vault Heist — Confidential Onchain Strategy Game
 
+> **Disclaimer:** This project is not audited, endorsed or operated by Zama. Use at your own risk.
+
 **Vault Heist** is a blind-allocation, push-your-luck heist game built on the **Zama Protocol (FHEVM)** for the **Zama Developer Program Mainnet Season 5: Confidential Gaming**.
 
-> **Live Demo (Sepolia):** [TO BE FILLED — after Vercel deployment]
-> **Contract (Sepolia):** [https://sepolia.etherscan.io/address/0x8938250FF1eCA753999F9FbD14DF320D4E334A6e](https://sepolia.etherscan.io/address/0x8938250FF1eCA753999F9FbD14DF320D4E334A6e)
+> **Live Demo (Sepolia):** [https://vault-heist-ten.vercel.app/](https://vault-heist-ten.vercel.app/)
+> **Game Contract (Sepolia):** [https://sepolia.etherscan.io/address/0xB3B5966F36c80c8755EA667a0d74749a8306c5A7](https://sepolia.etherscan.io/address/0xB3B5966F36c80c8755EA667a0d74749a8306c5A7)
+> **cLOOT Token — ERC-7984 (Sepolia):** [https://sepolia.etherscan.io/address/0x8475A387a5D9A943975DD2F73819936b98e0320a](https://sepolia.etherscan.io/address/0x8475A387a5D9A943975DD2F73819936b98e0320a)
 > **3-Minute Pitch Video:** [TO BE FILLED — after recording]
 > **X Announcement:** [TO BE FILLED — after posting]
 
@@ -55,6 +58,10 @@ On a public blockchain, simultaneous strategy games suffer from two fatal flaws:
 | `vault.alarmTripped` | `ebool` | Computed homomorphically; revealed via `FHE.makePubliclyDecryptable` at round end. |
 | `score1` / `score2` | `euint16` | Accumulated homomorphically; publicly decryptable at round end. |
 
+### Confidential Reward Token — `cLOOT` (ERC-7984)
+
+Finishing a match mints the player's final score as a **confidential ERC-7984 token** (`HeistLootToken`, symbol `cLOOT`, built on OpenZeppelin Confidential Contracts): `reward = finalScore × 100`, computed homomorphically from the encrypted score (`euint16` → `euint64`) and minted cross-contract via a transient ACL grant (`FHE.allowTransient`). Balances are encrypted `euint64` values — only the owner can decrypt their own balance, via the same EIP-712 user-decryption flow as Scout (the frontend's **Reveal Balance** button). In PvP both players are paid; in Solo mode only the human player (the bot has no wallet).
+
 ### Key Technical Safeguards
 - **Verifiable Onchain Fairness:** Vault stats and onchain bot allocations are generated with `FHE.randEuint8()` using bitmasking (`FHE.and`) for gas efficiency—neither players nor the deployer know the safe limits.
 - **Branchless Validation & `euint8` Overflow Protection:** Because `100 + 100 + 60 = 260` wraps around to `4` in `uint8`, `_validateBudget()` checks both individual bid caps (`bid <= maxBudget`) and total sum (`sum <= maxBudget`) homomorphically. Invalid or over-budget submissions are silently zeroed out via `FHE.select` without leaking values.
@@ -66,7 +73,8 @@ On a public blockchain, simultaneous strategy games suffer from two fatal flaws:
 ```text
 vault-heist/
 ├── contracts/
-│   └── VaultHeist.sol          # Core FHEVM game contract
+│   ├── VaultHeist.sol          # Core FHEVM game contract
+│   └── HeistLootToken.sol      # ERC-7984 confidential reward token (cLOOT)
 ├── scripts/
 │   └── deploy.ts               # Sepolia deployment script
 ├── test/
@@ -92,7 +100,7 @@ Copy `.env.example` to `.env` and fill in your Sepolia RPC URL and deployer priv
 npx hardhat run scripts/deploy.ts --network sepolia
 ```
 
-Deployed contract (Sepolia): `0x8938250FF1eCA753999F9FbD14DF320D4E334A6e`
+Deployed contracts (Sepolia): VaultHeist `0xB3B5966F36c80c8755EA667a0d74749a8306c5A7`, HeistLootToken (cLOOT) `0x8475A387a5D9A943975DD2F73819936b98e0320a`
 
 ### 3. Run Frontend Locally
 

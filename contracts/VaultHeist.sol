@@ -1,13 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { FHE, euint8, euint16, ebool, externalEuint8 } from "@fhevm/solidity/lib/FHE.sol";
+import { FHE, euint8, euint16, euint64, ebool, externalEuint8 } from "@fhevm/solidity/lib/FHE.sol";
 import { ZamaEthereumConfig } from "@fhevm/solidity/config/ZamaConfig.sol";
+
+interface IHeistLootToken {
+    function mintReward(address to, euint64 encryptedAmount) external;
+}
 
 contract VaultHeist is ZamaEthereumConfig {
     uint8 public constant MAX_ROUNDS = 3;
     uint8 public constant VAULT_COUNT = 3;
     uint8 public constant BASE_CREW = 10;
+
+    /// @notice Token hadiah rahasia ERC-7984 (cLOOT) yang dicetak saat match selesai
+    IHeistLootToken public immutable lootToken;
+
+    constructor(address _lootToken) {
+        require(_lootToken != address(0), "Alamat token tidak valid");
+        lootToken = IHeistLootToken(_lootToken);
+    }
 
     enum MatchState { WaitingPlayer, Active, Finished }
 
@@ -47,6 +59,7 @@ contract VaultHeist is ZamaEthereumConfig {
     event VaultScouted(uint256 indexed matchId, uint8 round, address indexed player, uint8 vaultIdx, bool isAlarm);
     event AllocationCommitted(uint256 indexed matchId, uint8 round, address indexed player);
     event RoundResolved(uint256 indexed matchId, uint8 round);
+    event RewardsMinted(uint256 indexed matchId, address indexed player1, address indexed player2);
 
     // =============================================================
     // 1. PEMBUATAN MATCH & INISIALISASI RONDE (FHE RNG)
@@ -309,6 +322,29 @@ contract VaultHeist is ZamaEthereumConfig {
             _initRound(matchId, m.currentRound);
         } else {
             m.state = MatchState.Finished;
+            _distributeRewards(matchId);
         }
+    }
+
+    /// @dev Konversi skor akhir (euint16) menjadi cLOOT (euint64) dan kirim lintas-kontrak via ACL sementara
+    function _distributeRewards(uint256 matchId) internal {
+        Match storage m = matches[matchId];
+
+        // Konversi skor euint16 ke euint64 (skala 1 skor = 100 cLOOT agar terasa seperti koin)
+        euint64 reward1 = FHE.mul(FHE.asEuint64(m.score1), FHE.asEuint64(100));
+
+        // KRUSIAL DI FHEVM: Beri izin ACL sementara (allowTransient) ke kontrak token
+        // agar HeistLootToken diizinkan memproses ciphertext `reward1` di transaksi ini!
+        FHE.allowTransient(reward1, address(lootToken));
+        lootToken.mintReward(m.player1, reward1);
+
+        // Jika mode PvP (bukan melawan bot), cetak juga hadiah untuk Player 2
+        if (!m.vsBot && m.player2 != address(0)) {
+            euint64 reward2 = FHE.mul(FHE.asEuint64(m.score2), FHE.asEuint64(100));
+            FHE.allowTransient(reward2, address(lootToken));
+            lootToken.mintReward(m.player2, reward2);
+        }
+
+        emit RewardsMinted(matchId, m.player1, m.player2);
     }
 }

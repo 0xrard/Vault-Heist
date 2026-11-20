@@ -14,15 +14,11 @@ import "@nomicfoundation/hardhat-ethers";
 import "@fhevm/hardhat-plugin";
 import "@nomicfoundation/hardhat-chai-matchers";
 import "@typechain/hardhat";
-import chai from "chai";
-import chaiAsPromised from "chai-as-promised";
 import { HardhatUserConfig } from "hardhat/config";
-
-chai.use(chaiAsPromised);
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.24",
+    version: "0.8.28",
     settings: {
       optimizer: { enabled: true, runs: 200 },
       evmVersion: "cancun",

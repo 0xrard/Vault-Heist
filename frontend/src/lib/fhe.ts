@@ -1,13 +1,18 @@
 import { BrowserProvider, type Signer } from "ethers";
 import type { FhevmInstance } from "@zama-fhe/relayer-sdk/web";
 
+export const SEPOLIA_CHAIN_ID = 11155111n;
+export const ZERO_HANDLE = "0x" + "0".repeat(64);
+
 let fheInstance: FhevmInstance | null = null;
 
+// ---------------------------------------------------------------------------
 // 1. Inisialisasi instance FHEVM di jaringan Sepolia
-// SDK dimuat secara lazy (dynamic import): impor statis dari paket ini
-// menyebabkan circular-dependency crash saat evaluasi modul di browser
-// ("Cannot read properties of undefined (reading 'initSDK')") yang membuat
-// seluruh aplikasi gagal render (halaman kosong).
+// PENTING: SDK dimuat secara lazy (dynamic import dari jalur /web).
+// Impor statis dari paket ini menyebabkan circular-dependency crash saat
+// evaluasi modul di browser ("Cannot read properties of undefined (reading
+// 'initSDK')") yang membuat seluruh aplikasi gagal render (halaman kosong).
+// ---------------------------------------------------------------------------
 export async function getFheInstance(): Promise<FhevmInstance> {
   if (fheInstance) return fheInstance;
 
@@ -45,12 +50,14 @@ export async function encryptBids(
   };
 }
 
-// 3. Dekripsi Pribadi (User Decryption) untuk fitur Scout via EIP-712
-export async function decryptScoutResult(
+// 3. Dekripsi Pribadi (User Decryption) via EIP-712 — dipakai untuk Scout
+//    (handle euint8 di VaultHeist) maupun saldo cLOOT (handle euint64 di
+//    HeistLootToken). Mengembalikan nilai mentah sebagai bigint.
+export async function userDecryptHandle(
   handle: string,
   contractAddress: string,
   signer: Signer
-): Promise<number> {
+): Promise<bigint> {
   const instance = await getFheInstance();
   const userAddress = await signer.getAddress();
 
@@ -85,31 +92,104 @@ export async function decryptScoutResult(
     durationDays
   );
 
-  return Number(result[handle as `0x${string}`]);
+  return BigInt(result[handle as `0x${string}`] as any);
+}
+
+// Alias kompatibilitas: versi Number dari userDecryptHandle
+export async function decryptScoutResult(
+  handle: string,
+  contractAddress: string,
+  signer: Signer
+): Promise<number> {
+  return Number(await userDecryptHandle(handle, contractAddress, signer));
 }
 
 // 4. Dekripsi Publik untuk status alarm & papan skor di akhir ronde
-export async function decryptPublicValues(handles: string[]) {
+export async function publicDecryptHandles(handles: string[]) {
   const instance = await getFheInstance();
   const result = await instance.publicDecrypt(handles);
   return result.clearValues as Record<string, unknown>;
 }
 
-// Helper koneksi MetaMask + cek Sepolia (Chain ID 11155111)
-export async function connectSepoliaWallet() {
+// Alias kompatibilitas
+export const decryptPublicValues = publicDecryptHandles;
+
+// Handle kosong (saldo token yang belum pernah menerima mint adalah zero hash)
+export function isZeroHandle(handle: string | null | undefined): boolean {
+  if (!handle) return true;
+  return /^0x0*$/.test(handle);
+}
+
+// ---------------------------------------------------------------------------
+// Koneksi MetaMask + jaringan Sepolia
+// ---------------------------------------------------------------------------
+export async function connectSepoliaWallet(): Promise<Signer> {
   if (!(window as any).ethereum) {
-    throw new Error("MetaMask tidak ditemukan");
+    throw new Error("MetaMask tidak ditemukan. Pasang ekstensi MetaMask lalu muat ulang halaman ini.");
   }
   const provider = new BrowserProvider((window as any).ethereum);
   await provider.send("eth_requestAccounts", []);
-
-  const network = await provider.getNetwork();
-  if (network.chainId !== 11155111n) {
-    await (window as any).ethereum.request({
-      method: "wallet_switchEthereumChain",
-      params: [{ chainId: "0xaa36a7" }],
-    });
-  }
-
+  await ensureSepolia();
   return await provider.getSigner();
+}
+
+export async function ensureSepolia(): Promise<void> {
+  if (!(window as any).ethereum) return;
+  const provider = new BrowserProvider((window as any).ethereum);
+  const network = await provider.getNetwork();
+  if (network.chainId !== SEPOLIA_CHAIN_ID) {
+    try {
+      await (window as any).ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0xaa36a7" }],
+      });
+    } catch (err: any) {
+      // Chain belum dikenal MetaMask -> tambahkan Sepolia secara eksplisit
+      if (err?.code === 4902) {
+        await (window as any).ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: "0xaa36a7",
+              chainName: "Ethereum Sepolia",
+              nativeCurrency: { name: "Sepolia ETH", symbol: "ETH", decimals: 18 },
+              rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
+              blockExplorerUrls: ["https://sepolia.etherscan.io"],
+            },
+          ],
+        });
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+export async function currentChainId(): Promise<bigint | null> {
+  if (!(window as any).ethereum) return null;
+  const provider = new BrowserProvider((window as any).ethereum);
+  return (await provider.getNetwork()).chainId;
+}
+
+// Ubah error mentah (wallet/relayer/kontrak) menjadi pesan yang bersih untuk UI
+export function friendlyError(err: any): string {
+  const code = err?.code ?? err?.info?.error?.code;
+  const msg = String(err?.shortMessage ?? err?.reason ?? err?.message ?? err ?? "");
+
+  if (code === "ACTION_REJECTED" || code === 4001 || /user rejected|user denied/i.test(msg)) {
+    return "Ditolak di wallet. Transaksi/tanda tangan dibatalkan — tidak ada yang terkirim.";
+  }
+  if (/insufficient funds/i.test(msg)) {
+    return "Saldo Sepolia ETH tidak cukup untuk gas. Isi dulu dari faucet Sepolia, lalu coba lagi.";
+  }
+  if (/MetaMask tidak ditemukan/i.test(msg)) {
+    return msg;
+  }
+  if (/relayer|fetch|network|timeout|timed out/i.test(msg)) {
+    return "Gangguan jaringan/relayer Zama. Tunggu beberapa detik lalu coba lagi.";
+  }
+  if (/Match tidak aktif/i.test(msg)) return "Match ini sudah selesai atau belum aktif.";
+  if (/Sudah scout atau commit/i.test(msg)) return "Kamu sudah memakai Scout (atau sudah commit) di ronde ini.";
+  if (/Bukan peserta match/i.test(msg)) return "Wallet ini bukan peserta match tersebut.";
+  return msg.length > 220 ? msg.slice(0, 220) + "…" : msg || "Terjadi kesalahan tak dikenal.";
 }

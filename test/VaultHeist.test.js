@@ -7,8 +7,12 @@ describe("VaultHeist (mock FHEVM)", function () {
 
   before(async function () {
     [player] = await hre.ethers.getSigners();
+    const tokenFactory = await hre.ethers.getContractFactory("HeistLootToken");
+    const lootToken = await tokenFactory.deploy();
+    await lootToken.waitForDeployment();
     const factory = await hre.ethers.getContractFactory("VaultHeist");
-    contract = await factory.deploy();
+    contract = await factory.deploy(await lootToken.getAddress());
+    await (await lootToken.setGameContract(await contract.getAddress())).wait();
     addr = await contract.getAddress();
   });
 

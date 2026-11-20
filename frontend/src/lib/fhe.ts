@@ -16,7 +16,15 @@ let fheInstance: FhevmInstance | null = null;
 export async function getFheInstance(): Promise<FhevmInstance> {
   if (fheInstance) return fheInstance;
 
-  const sdk = await import("@zama-fhe/relayer-sdk/web");
+  let sdk: typeof import("@zama-fhe/relayer-sdk/web");
+  try {
+    sdk = await import("@zama-fhe/relayer-sdk/web");
+  } catch {
+    // Chunk SDK bisa gagal dimuat sesaat (jaringan) atau karena tab memegang
+    // build lama — beri satu kesempatan lagi sebelum menyerah.
+    await new Promise((r) => setTimeout(r, 1500));
+    sdk = await import("@zama-fhe/relayer-sdk/web");
+  }
   await sdk.initSDK(); // Memuat modul WASM TFHE
   fheInstance = await sdk.createInstance({
     ...sdk.SepoliaConfig,
@@ -204,6 +212,9 @@ export function friendlyError(err: any): string {
   }
   if (/MetaMask not found/i.test(msg)) {
     return msg;
+  }
+  if (/dynamically imported module|preload/i.test(msg)) {
+    return "The app was updated in the background and this tab is stale. Hard-refresh the page (Ctrl+Shift+R), then try again." + detail;
   }
   if (/relayer|fetch|network|timeout|timed out/i.test(msg)) {
     return "Zama relayer / network hiccup. Wait a few seconds and try again." + detail;

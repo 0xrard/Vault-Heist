@@ -57,6 +57,7 @@ export async function fetchMatch(contract: Contract, matchId: number): Promise<M
 export interface RoundRecord {
   round: number;
   alarms: [boolean, boolean, boolean]; // per Vault A/B/C: true = alarm berbunyi
+  alarmsKnown?: boolean; // false = dekripsi status alarm ronde ini belum berhasil (relayer)
   scoreYou: number;
   scoreOpp: number;
 }

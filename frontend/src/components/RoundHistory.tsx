@@ -16,7 +16,12 @@ export default function RoundHistory({ history }: { history: RoundRecord[] }) {
           >
             <span className="font-mono text-sm font-bold">Round {r.round}</span>
             <div className="flex gap-2">
-              {r.alarms.map((tripped, i) => (
+              {r.alarmsKnown === false ? (
+                <span className="flex items-center gap-1 rounded-full bg-slate-500/15 px-2.5 py-1 font-mono text-[11px] font-semibold text-slate-400">
+                  ALARM STATUS SYNCING…
+                </span>
+              ) : (
+                r.alarms.map((tripped, i) => (
                 <span
                   key={i}
                   className={`flex items-center gap-1 rounded-full px-2.5 py-1 font-mono text-[11px] font-semibold ${
@@ -28,7 +33,8 @@ export default function RoundHistory({ history }: { history: RoundRecord[] }) {
                   {tripped ? <AlarmClockOff className="size-3.5" /> : <AlarmClockCheck className="size-3.5" />}
                   {String.fromCharCode(65 + i)} {tripped ? "ALARM" : "SAFE"}
                 </span>
-              ))}
+                ))
+              )}
             </div>
             <span className="ml-auto font-mono text-sm text-slate-300">
               {r.scoreYou < 0 ? (

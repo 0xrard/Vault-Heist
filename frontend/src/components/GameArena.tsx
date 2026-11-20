@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Loader2, Lock, RefreshCw, Send } from "lucide-react";
+import { CheckCircle2, Eye, Loader2, Lock, RefreshCw, Send } from "lucide-react";
 import type { Signer } from "ethers";
 import VaultCard, { type ScoutedStat } from "./VaultCard";
 import { encryptBids, friendlyError, publicDecryptHandles, userDecryptHandle } from "../lib/fhe";
@@ -13,6 +13,7 @@ interface Props {
   scores: { you: number; opp: number };
   onRoundResolved: (record: RoundRecord, updated: MatchInfo, scores: { you: number; opp: number }) => void;
   onError: (msg: string) => void;
+  onResync: () => void;
 }
 
 const BASE_BUDGET = 10;
@@ -25,10 +26,12 @@ export default function GameArena({
   scores,
   onRoundResolved,
   onError,
+  onResync,
 }: Props) {
   const round = matchInfo.currentRound;
   const [bids, setBids] = useState<[number, number, number]>([4, 3, 3]);
   const [scouted, setScouted] = useState<ScoutedStat | null>(null);
+  const [pendingScout, setPendingScout] = useState<{ vaultIdx: number; kind: "loot" | "alarm" } | null>(null);
   const [handles, setHandles] = useState<{ loot: string; alarm: string }[] | null>(null);
   const [step, setStep] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -36,7 +39,35 @@ export default function GameArena({
 
   const contract = useMemo(() => getGameContract(signer), [signer]);
   const readContract = useMemo(() => getGameReadContract(), []);
-  const maxBudget = scouted ? BASE_BUDGET - 1 : BASE_BUDGET;
+
+  // Status Scout dipulihkan dari localStorage: transaksi Scout bisa berhasil
+  // onchain sementara dekripsinya gagal (relayer lambat) — tanpa ini, UI tidak
+  // tahu Scout sudah terpakai dan budget-nya tidak sinkron dengan kontrak.
+  const storageKey = `vh-scout-${matchId}-${round}`;
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved.scouted) setScouted(saved.scouted);
+        else if (saved.pendingScout) setPendingScout(saved.pendingScout);
+      }
+    } catch {
+      /* abaikan */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
+  useEffect(() => {
+    try {
+      if (scouted) localStorage.setItem(storageKey, JSON.stringify({ scouted }));
+      else if (pendingScout) localStorage.setItem(storageKey, JSON.stringify({ pendingScout }));
+    } catch {
+      /* abaikan */
+    }
+  }, [storageKey, scouted, pendingScout]);
+
+  const scoutUsed = scouted !== null || pendingScout !== null;
+  const maxBudget = scoutUsed ? BASE_BUDGET - 1 : BASE_BUDGET;
   const total = bids[0] + bids[1] + bids[2];
   const overBudget = total > maxBudget;
   const finished = matchInfo.state === 2;
@@ -62,7 +93,7 @@ export default function GameArena({
     };
   }, [readContract, matchId, round]);
 
-  const phase = waitingOpp || busy ? 3 : scouted || total !== 10 ? 2 : 1;
+  const phase = waitingOpp || busy ? 3 : scoutUsed || total !== 10 ? 2 : 1;
 
   function setBid(idx: number, value: number) {
     setBids((prev) => {
@@ -72,20 +103,53 @@ export default function GameArena({
     });
   }
 
+  // Dekripsi hasil Scout yang transaksinya SUDAH tercatat onchain.
+  // Dipisah dari handleScout agar bisa di-retry tanpa transaksi baru.
+  async function decryptPending(p: { vaultIdx: number; kind: "loot" | "alarm" }) {
+    setStep("Sign the EIP-712 request to privately decrypt this stat…");
+    const [lootHandle, alarmHandle] = await readContract.getVaultHandles(matchId, round, p.vaultIdx);
+    const value = await userDecryptHandle(
+      p.kind === "alarm" ? alarmHandle : lootHandle,
+      CONTRACT_ADDRESS,
+      signer
+    );
+    setScouted({ vaultIdx: p.vaultIdx, kind: p.kind, value: Number(value) });
+    setPendingScout(null);
+  }
+
+  // Kontrak menolak karena status match di onchain sudah berubah (mis. sudah
+  // Finished) sementara UI masih memegang tampilan lama: sinkronkan ulang dari
+  // chain alih-alih menampilkan error yang membingungkan.
+  function isStaleStateError(err: any): boolean {
+    const msg = String(err?.reason ?? err?.message ?? err ?? "");
+    return /Match tidak aktif|Match sudah dimulai|Match penuh/.test(msg);
+  }
+
   async function handleScout(idx: number, kind: "loot" | "alarm") {
     setBusy(true);
     try {
       setStep("Sending Scout transaction — granting ACL only to your wallet…");
       const tx = await contract.scoutVault(matchId, idx, kind === "alarm");
       await tx.wait();
-      setStep("Sign the EIP-712 request to privately decrypt this stat…");
-      const [lootHandle, alarmHandle] = await readContract.getVaultHandles(matchId, round, idx);
-      const value = await userDecryptHandle(
-        kind === "alarm" ? alarmHandle : lootHandle,
-        CONTRACT_ADDRESS,
-        signer
-      );
-      setScouted({ vaultIdx: idx, kind, value: Number(value) });
+      // Sejak transaksi ini tercatat, budget onchain = 9. Tandai SEKARANG,
+      // sebelum dekripsi dicoba, agar UI tidak pernah desync dari kontrak.
+      const p = { vaultIdx: idx, kind };
+      setPendingScout(p);
+      await decryptPending(p);
+    } catch (err: any) {
+      if (isStaleStateError(err)) onResync();
+      else onError(friendlyError(err));
+    } finally {
+      setBusy(false);
+      setStep(null);
+    }
+  }
+
+  async function handleRetryDecrypt() {
+    if (!pendingScout) return;
+    setBusy(true);
+    try {
+      await decryptPending(pendingScout);
     } catch (err: any) {
       onError(friendlyError(err));
     } finally {
@@ -134,13 +198,22 @@ export default function GameArena({
       setStep("Waiting for Sepolia confirmation & homomorphic resolution…");
       await tx.wait();
 
-      const done = await collectResolution(round);
+      let done = false;
+      try {
+        done = await collectResolution(round);
+      } catch {
+        // Transaksi commit SUDAH tercatat onchain; yang gagal hanya mengambil
+        // hasilnya dari relayer. Jangan tinggalkan arena mati: tampilkan panel
+        // pemulihan agar hasil bisa diambil ulang tanpa transaksi baru.
+        done = false;
+      }
       if (!done) {
         setWaitingOpp(true);
         setStep(null);
       }
     } catch (err: any) {
-      onError(friendlyError(err));
+      if (isStaleStateError(err)) onResync();
+      else onError(friendlyError(err));
       setStep(null);
     } finally {
       setBusy(false);
@@ -151,9 +224,10 @@ export default function GameArena({
     setBusy(true);
     try {
       const done = await collectResolution(round);
-      if (!done) onError("Opponent belum commit. Coba lagi sebentar lagi.");
+      if (!done) onError("Round results are not available yet. Try again in a moment.");
     } catch (err: any) {
-      onError(friendlyError(err));
+      if (isStaleStateError(err)) onResync();
+      else onError(friendlyError(err));
     } finally {
       setBusy(false);
       setStep(null);
@@ -207,7 +281,7 @@ export default function GameArena({
             <span>CREW BUDGET</span>
             <span className={`font-mono text-xs font-bold ${overBudget ? "text-rose-400" : "text-slate-300"}`}>
               {total} / {maxBudget}
-              {scouted ? " (Scout used)" : ""}
+              {scoutUsed ? " (Scout used)" : ""}
             </span>
           </div>
           <div className="flex gap-1">
@@ -228,11 +302,11 @@ export default function GameArena({
           </div>
           {overBudget && (
             <p className="mt-1.5 text-xs text-rose-400">
-              Total melebihi budget ronde ini ({maxBudget}). Kurangi alokasi dulu.
+              Total exceeds this round's budget ({maxBudget}). Reduce your allocation first.
             </p>
           )}
           {total === 0 && !finished && (
-            <p className="mt-1.5 text-xs text-slate-500">Alokasikan minimal 1 kru untuk commit.</p>
+            <p className="mt-1.5 text-xs text-slate-500">Allocate at least 1 crew to commit.</p>
           )}
         </div>
       </div>
@@ -250,7 +324,7 @@ export default function GameArena({
               lootHandle={handles?.[idx]?.loot ?? null}
               alarmHandle={handles?.[idx]?.alarm ?? null}
               scouted={scouted?.vaultIdx === idx ? scouted : null}
-              scoutUsed={scouted !== null}
+              scoutUsed={scoutUsed}
               busy={busy}
               locked={waitingOpp || finished}
               onBidChange={setBid}
@@ -259,6 +333,24 @@ export default function GameArena({
           );
         })}
       </div>
+
+      {/* Scout tercatat onchain tapi dekripsi belum berhasil -> tawarkan retry gratis */}
+      {pendingScout && !scouted && (
+        <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+          <Eye className="size-4 shrink-0" />
+          <span>
+            Your Scout is recorded onchain (this round's budget is now {maxBudget}), but the
+            private decryption hasn't succeeded yet — the relayer is usually just slow.
+          </span>
+          <button
+            onClick={handleRetryDecrypt}
+            disabled={busy}
+            className="ml-auto flex items-center gap-2 rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-amber-300 disabled:opacity-60"
+          >
+            <RefreshCw className="size-4" /> Retry Decryption (no new transaction)
+          </button>
+        </div>
+      )}
 
       {/* Banner langkah / status */}
       {step && (
@@ -272,14 +364,16 @@ export default function GameArena({
         <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3">
           <CheckCircle2 className="size-5 text-emerald-400" />
           <span className="text-sm text-slate-200">
-            Allocation committed &amp; encrypted. Waiting for your opponent to commit…
+            {matchInfo.vsBot
+              ? "Allocation committed & encrypted — this round's results are still syncing from the relayer…"
+              : "Allocation committed & encrypted. Waiting for your opponent to commit…"}
           </span>
           <button
             onClick={handleRefresh}
             disabled={busy}
             className="ml-auto flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold transition hover:bg-slate-700 disabled:opacity-60"
           >
-            <RefreshCw className="size-4" /> Check Resolution
+            <RefreshCw className="size-4" /> {matchInfo.vsBot ? "Fetch Round Results" : "Check Resolution"}
           </button>
         </div>
       ) : (

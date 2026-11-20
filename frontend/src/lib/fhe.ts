@@ -107,8 +107,22 @@ export async function decryptScoutResult(
 // 4. Dekripsi Publik untuk status alarm & papan skor di akhir ronde
 export async function publicDecryptHandles(handles: string[]) {
   const instance = await getFheInstance();
-  const result = await instance.publicDecrypt(handles);
-  return result.clearValues as Record<string, unknown>;
+  // Relayer testnet fluktuatif: job dekripsi publik sering gagal di langkah
+  // polling, dan handle yang baru dibuat publicly-decryptable butuh waktu
+  // terindeks relayer ("not allowed for public decryption" sesaat). Dekripsi
+  // publik tidak butuh tanda tangan, jadi aman di-retry otomatis di sini —
+  // semua pemanggil (resolusi ronde, resume, ringkasan) ikut diuntungkan.
+  let lastErr: unknown = null;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      const result = await instance.publicDecrypt(handles);
+      return result.clearValues as Record<string, unknown>;
+    } catch (err) {
+      lastErr = err;
+      if (attempt < 4) await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
+  throw lastErr;
 }
 
 // Alias kompatibilitas
@@ -125,7 +139,7 @@ export function isZeroHandle(handle: string | null | undefined): boolean {
 // ---------------------------------------------------------------------------
 export async function connectSepoliaWallet(): Promise<Signer> {
   if (!(window as any).ethereum) {
-    throw new Error("MetaMask tidak ditemukan. Pasang ekstensi MetaMask lalu muat ulang halaman ini.");
+    throw new Error("MetaMask not found. Install the MetaMask extension, then reload this page.");
   }
   const provider = new BrowserProvider((window as any).ethereum);
   await provider.send("eth_requestAccounts", []);
@@ -180,22 +194,22 @@ export function friendlyError(err: any): string {
   const detail = msg ? ` (detail: ${msg.length > 140 ? msg.slice(0, 140) + "…" : msg})` : "";
 
   if (code === "ACTION_REJECTED" || code === 4001 || /user rejected|user denied/i.test(msg)) {
-    return "Ditolak di wallet. Transaksi/tanda tangan dibatalkan — tidak ada yang terkirim.";
+    return "Rejected in your wallet. The transaction/signature was cancelled — nothing was sent.";
   }
   if (/insufficient funds/i.test(msg)) {
-    return "Saldo Sepolia ETH tidak cukup untuk gas. Isi dulu dari faucet Sepolia, lalu coba lagi." + detail;
+    return "Not enough Sepolia ETH for gas. Top up from a Sepolia faucet, then try again." + detail;
   }
   if (/missing revert data|CALL_EXCEPTION/i.test(msg)) {
-    return "Node RPC jaringan Sepolia di wallet-mu tidak menemukan kontrak ini. Periksa URL RPC Sepolia di MetaMask (Settings → Networks → Sepolia) atau coba lagi sebentar." + detail;
+    return "Your wallet's Sepolia RPC node could not find this contract. Check the Sepolia RPC URL in MetaMask (Settings → Networks → Sepolia), or try again in a moment." + detail;
   }
-  if (/MetaMask tidak ditemukan/i.test(msg)) {
+  if (/MetaMask not found/i.test(msg)) {
     return msg;
   }
   if (/relayer|fetch|network|timeout|timed out/i.test(msg)) {
-    return "Gangguan jaringan/relayer Zama. Tunggu beberapa detik lalu coba lagi." + detail;
+    return "Zama relayer / network hiccup. Wait a few seconds and try again." + detail;
   }
-  if (/Match tidak aktif/i.test(msg)) return "Match ini sudah selesai atau belum aktif." + detail;
-  if (/Sudah scout atau commit/i.test(msg)) return "Kamu sudah memakai Scout (atau sudah commit) di ronde ini." + detail;
-  if (/Bukan peserta match/i.test(msg)) return "Wallet ini bukan peserta match tersebut." + detail;
-  return msg.length > 220 ? msg.slice(0, 220) + "…" : msg || "Terjadi kesalahan tak dikenal.";
+  if (/Match tidak aktif/i.test(msg)) return "This match is already finished or not active yet." + detail;
+  if (/Sudah scout atau commit/i.test(msg)) return "You have already used your Scout (or already committed) this round." + detail;
+  if (/Bukan peserta match/i.test(msg)) return "This wallet is not a participant in that match." + detail;
+  return msg.length > 220 ? msg.slice(0, 220) + "…" : msg || "An unknown error occurred.";
 }

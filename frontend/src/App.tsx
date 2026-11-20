@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import type { Signer } from "ethers";
 import Navbar from "./components/Navbar";
@@ -141,7 +141,7 @@ export default function App() {
       await ensureWallet();
       const info = await fetchMatch(getGameReadContract(), waitingMatchId);
       if (info.state === 0) {
-        showError("Opponent belum join. Bagikan Match ID-nya, lalu cek lagi.");
+        showError("Your opponent hasn't joined yet. Share the Match ID with them, then check again.");
         return;
       }
       enterArena(waitingMatchId, info, 1, { you: 0, opp: 0 }, []);
@@ -178,40 +178,59 @@ export default function App() {
       const player: 1 | 2 | null =
         info.player1.toLowerCase() === me ? 1 : info.player2.toLowerCase() === me ? 2 : null;
       if (!player) {
-        showError("Wallet ini bukan peserta match tersebut.");
+        showError("This wallet is not a participant in that match.");
         return;
       }
       if (info.state === 0) {
         setWaitingMatchId(id);
-        showError("Match masih menunggu opponent. Bagikan Match ID-nya ke lawanmu.");
+        showError("This match is still waiting for an opponent. Share the Match ID with them.");
         return;
       }
 
-      // Skor hanya bisa didekripsi publik setelah ronde pertama beres
+      // Skor hanya bisa didekripsi publik setelah ronde pertama beres.
+      // Setiap langkah dekripsi diisolasi: satu kegagalan relayer TIDAK boleh
+      // membatalkan seluruh resume — ronde yang gagal tampil sebagai "syncing".
       let sc = { you: 0, opp: 0 };
+      let scoresKnown = false;
       const hist: RoundRecord[] = [];
       const completedRounds = info.state === 2 ? 3 : info.currentRound - 1;
       if (completedRounds > 0) {
-        const clear = await publicDecryptHandles([info.score1Handle, info.score2Handle]);
-        const s1 = Number(clear[info.score1Handle] as any);
-        const s2 = Number(clear[info.score2Handle] as any);
-        sc = player === 1 ? { you: s1, opp: s2 } : { you: s2, opp: s1 };
+        try {
+          const clear = await publicDecryptHandles([info.score1Handle, info.score2Handle]);
+          const s1 = Number(clear[info.score1Handle] as any);
+          const s2 = Number(clear[info.score2Handle] as any);
+          sc = player === 1 ? { you: s1, opp: s2 } : { you: s2, opp: s1 };
+          scoresKnown = true;
+        } catch {
+          /* skor belum bisa dibaca — arena tetap dibuka, polling akan menyinkronkan */
+        }
 
         // Riwayat alarm per ronde yang sudah selesai (skor per-ronde tidak tersimpan
         // onchain, jadi progres skor ditandai -1 = tidak diketahui untuk match resume)
         for (let r = 1; r <= completedRounds; r++) {
-          const alarmHandles: string[] = [];
-          for (let i = 0; i < 3; i++) {
-            const [, , tripped] = await contract.getVaultHandles(id, r, i);
-            alarmHandles.push(tripped);
+          try {
+            const alarmHandles: string[] = [];
+            for (let i = 0; i < 3; i++) {
+              const [, , tripped] = await contract.getVaultHandles(id, r, i);
+              alarmHandles.push(tripped);
+            }
+            const ac = await publicDecryptHandles(alarmHandles);
+            hist.push({
+              round: r,
+              alarms: alarmHandles.map((h) => Boolean(ac[h])) as [boolean, boolean, boolean],
+              alarmsKnown: true,
+              scoreYou: r === completedRounds && scoresKnown ? sc.you : -1,
+              scoreOpp: r === completedRounds && scoresKnown ? sc.opp : -1,
+            });
+          } catch {
+            hist.push({
+              round: r,
+              alarms: [false, false, false],
+              alarmsKnown: false,
+              scoreYou: -1,
+              scoreOpp: -1,
+            });
           }
-          const ac = await publicDecryptHandles(alarmHandles);
-          hist.push({
-            round: r,
-            alarms: alarmHandles.map((h) => Boolean(ac[h])) as [boolean, boolean, boolean],
-            scoreYou: r === completedRounds ? sc.you : -1,
-            scoreOpp: r === completedRounds ? sc.opp : -1,
-          });
         }
       }
       enterArena(id, info, player, sc, hist);
@@ -231,9 +250,66 @@ export default function App() {
         setShowSummary(true);
         setLootRefreshKey((k) => k + 1);
       }
+      // Backfill: ronde-ronde sebelumnya yang catatannya hilang (pengambilan
+      // hasilnya sempat gagal) diisi ulang dari kontrak agar RoundHistory
+      // selalu lengkap 1..ronde terakhir, bukan hanya ronde terbaru.
+      if (matchId !== null && record.round > 1) {
+        const id = matchId;
+        void (async () => {
+          const contract = getGameReadContract();
+          for (let r = 1; r < record.round; r++) {
+            let rec: RoundRecord;
+            try {
+              const alarmHandles: string[] = [];
+              for (let i = 0; i < 3; i++) {
+                const [, , tripped] = await contract.getVaultHandles(id, r, i);
+                alarmHandles.push(tripped);
+              }
+              const ac = await publicDecryptHandles(alarmHandles);
+              rec = {
+                round: r,
+                alarms: alarmHandles.map((h) => Boolean(ac[h])) as [boolean, boolean, boolean],
+                alarmsKnown: true,
+                scoreYou: -1,
+                scoreOpp: -1,
+              };
+            } catch {
+              rec = { round: r, alarms: [false, false, false], alarmsKnown: false, scoreYou: -1, scoreOpp: -1 };
+            }
+            setHistory((h) => (h.some((x) => x.round === r) ? h : [...h, rec].sort((a, b) => a.round - b.round)));
+          }
+        })();
+      }
     },
-    []
+    [matchId]
   );
+
+  // Auto-sync arena: polling ringan membandingkan state onchain vs lokal.
+  // Bila berbeda (ronde/match berubah di luar aliran UI — mis. pengambilan
+  // hasil sempat gagal), bangun ulang seluruh tampilan dari kontrak via
+  // resume(): riwayat lengkap, skor terbaru, dan modal akhir bila Finished.
+  const resumeRef = useRef(resume);
+  resumeRef.current = resume;
+  const syncingRef = useRef(false);
+  useEffect(() => {
+    if (screen !== "arena" || matchId === null || !matchInfo || showSummary) return;
+    const localState = matchInfo.state;
+    const localRound = matchInfo.currentRound;
+    const t = setInterval(async () => {
+      if (syncingRef.current) return;
+      try {
+        const info = await fetchMatch(getGameReadContract(), matchId);
+        if (info.state !== localState || info.currentRound !== localRound) {
+          syncingRef.current = true;
+          await resumeRef.current(matchId);
+          syncingRef.current = false;
+        }
+      } catch {
+        /* abaikan — interval berikutnya mencoba lagi */
+      }
+    }, 20000);
+    return () => clearInterval(t);
+  }, [screen, matchId, matchInfo?.state, matchInfo?.currentRound, showSummary]);
 
   return (
     <div className="blueprint-bg min-h-screen bg-slate-950">
@@ -252,7 +328,7 @@ export default function App() {
           <div className="flex w-full items-start gap-3 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span className="flex-1">{error}</span>
-            <button onClick={() => setError(null)} aria-label="Tutup error">
+            <button onClick={() => setError(null)} aria-label="Dismiss error">
               <X className="size-4" />
             </button>
           </div>
@@ -280,6 +356,7 @@ export default function App() {
             scores={scores}
             onRoundResolved={handleRoundResolved}
             onError={showError}
+            onResync={() => void resume(matchId)}
           />
           <div className="mx-auto w-full max-w-6xl px-4 pb-10">
             <RoundHistory history={history} />

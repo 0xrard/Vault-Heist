@@ -84,8 +84,16 @@ export default function MatchSummaryModal({
               <span className="font-mono">euint64</span>.
             </p>
             {loot !== null ? (
-              <div className="mt-3 font-mono text-xl font-bold text-amber-300">
-                Balance: {loot.toLocaleString()} cLOOT
+              <div className="mt-3">
+                <div className="font-mono text-sm text-amber-100/90">
+                  This match:{" "}
+                  <strong className="text-amber-300">
+                    +{(scoreYou * 100).toLocaleString()} cLOOT
+                  </strong>
+                </div>
+                <div className="mt-1 font-mono text-xl font-bold text-amber-300">
+                  Total Balance: {loot.toLocaleString()} cLOOT
+                </div>
               </div>
             ) : (
               <button

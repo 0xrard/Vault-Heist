@@ -1,9 +1,11 @@
-import { useState } from "react";
-import { Bot, Copy, Crosshair, Eye, Loader2, Play, Swords, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bot, Copy, Crosshair, Eye, History, Loader2, Play, RefreshCw, Swords, Users } from "lucide-react";
+import { fetchUserMatches, getGameReadContract, type UserMatch } from "../lib/contracts";
 
 interface Props {
   busy: string | null;
   waitingMatchId: number | null;
+  address: string | null;
   onStartSolo: () => void;
   onCreatePvp: () => void;
   onJoinPvp: (matchId: number) => void;
@@ -14,6 +16,7 @@ interface Props {
 export default function Lobby({
   busy,
   waitingMatchId,
+  address,
   onStartSolo,
   onCreatePvp,
   onJoinPvp,
@@ -24,8 +27,34 @@ export default function Lobby({
   const [resumeId, setResumeId] = useState("");
   const [copied, setCopied] = useState(false);
   const [showPvp, setShowPvp] = useState(false);
+  const [myMatches, setMyMatches] = useState<UserMatch[] | null>(null);
+  const [loadingMatches, setLoadingMatches] = useState(false);
 
   const isBusy = busy !== null;
+
+  async function loadMyMatches() {
+    if (!address) return;
+    setLoadingMatches(true);
+    try {
+      setMyMatches(await fetchUserMatches(getGameReadContract(), address));
+    } catch {
+      setMyMatches([]);
+    } finally {
+      setLoadingMatches(false);
+    }
+  }
+
+  useEffect(() => {
+    if (address) void loadMyMatches();
+    else setMyMatches(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address]);
+
+  function statusLabel(m: UserMatch): string {
+    if (m.info.state === 0) return "Waiting for opponent";
+    if (m.info.state === 2) return "Finished";
+    return `In progress — Round ${m.info.currentRound} of 3`;
+  }
 
   return (
     <div className="rise-in mx-auto w-full max-w-3xl px-4 py-8">
@@ -151,6 +180,67 @@ export default function Lobby({
             </div>
           )}
         </div>
+
+        {address && (
+          <div className="mt-5 border-t border-slate-800 pt-5">
+            <div className="mb-2 flex items-center gap-2">
+              <History className="size-4 text-cyan-400" />
+              <span className="text-sm font-semibold text-slate-300">Your Matches</span>
+              <button
+                onClick={() => void loadMyMatches()}
+                disabled={loadingMatches}
+                className="ml-auto flex items-center gap-1 text-xs text-slate-400 transition hover:text-cyan-300 disabled:opacity-60"
+              >
+                <RefreshCw className={`size-3.5 ${loadingMatches ? "animate-spin" : ""}`} /> Refresh
+              </button>
+            </div>
+            {loadingMatches && myMatches === null ? (
+              <p className="flex items-center gap-2 text-sm text-slate-500">
+                <Loader2 className="size-4 animate-spin" /> Loading your matches from Sepolia…
+              </p>
+            ) : myMatches && myMatches.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {myMatches.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3"
+                  >
+                    <span className="font-mono text-sm font-bold">Match #{m.id}</span>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 font-mono text-[11px] font-semibold ${
+                        m.info.vsBot
+                          ? "bg-emerald-400/10 text-emerald-400"
+                          : "bg-cyan-400/10 text-cyan-300"
+                      }`}
+                    >
+                      {m.info.vsBot ? "SOLO vs BOT" : "PVP"}
+                    </span>
+                    <span
+                      className={`font-mono text-xs ${
+                        m.info.state === 2
+                          ? "text-amber-300"
+                          : m.info.state === 1
+                            ? "text-slate-200"
+                            : "text-slate-400"
+                      }`}
+                    >
+                      {statusLabel(m)}
+                    </span>
+                    <button
+                      onClick={() => onResume(m.id)}
+                      disabled={isBusy}
+                      className="ml-auto rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold transition hover:bg-slate-700 disabled:opacity-60"
+                    >
+                      {busy === "resume" ? "Loading…" : m.info.state === 2 ? "View Result" : "Resume"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">No matches yet for this wallet.</p>
+            )}
+          </div>
+        )}
 
         <div className="mt-5 border-t border-slate-800 pt-5">
           <div className="mb-2 text-sm font-semibold text-slate-300">Resume Match by ID</div>

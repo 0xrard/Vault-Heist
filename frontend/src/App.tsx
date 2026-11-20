@@ -339,6 +339,7 @@ export default function App() {
         <Lobby
           busy={busy}
           waitingMatchId={waitingMatchId}
+          address={address}
           onStartSolo={startSolo}
           onCreatePvp={createPvp}
           onJoinPvp={joinPvp}

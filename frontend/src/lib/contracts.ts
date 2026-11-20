@@ -54,6 +54,33 @@ export async function fetchMatch(contract: Contract, matchId: number): Promise<M
   };
 }
 
+export interface UserMatch {
+  id: number;
+  info: MatchInfo;
+}
+
+// Daftar match milik satu wallet: enumerasi ID dari nextMatchId (terbaru
+// dulu, dibatasi maxScan agar panggilan RPC tetap ringan), lalu saring yang
+// player1/player2-nya adalah wallet ini. Tanpa event scan — node RPC publik
+// memangkas riwayat log lama, enumerasi langsung selalu lengkap.
+export async function fetchUserMatches(
+  contract: Contract,
+  userAddress: string,
+  maxScan = 60
+): Promise<UserMatch[]> {
+  const total = Number(await contract.nextMatchId());
+  const from = Math.max(0, total - maxScan);
+  const ids: number[] = [];
+  for (let id = total - 1; id >= from; id--) ids.push(id);
+  const me = userAddress.toLowerCase();
+  const results = await Promise.all(
+    ids.map(async (id) => ({ id, info: await fetchMatch(contract, id) }))
+  );
+  return results.filter(
+    ({ info }) => info.player1.toLowerCase() === me || info.player2.toLowerCase() === me
+  );
+}
+
 export interface RoundRecord {
   round: number;
   alarms: [boolean, boolean, boolean]; // per Vault A/B/C: true = alarm berbunyi

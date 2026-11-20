@@ -1,0 +1,381 @@
+{
+ "abi": [
+  {
+   "inputs": [
+    {
+     "internalType": "bytes32",
+     "name": "handle",
+     "type": "bytes32"
+    },
+    {
+     "internalType": "address",
+     "name": "sender",
+     "type": "address"
+    }
+   ],
+   "name": "SenderNotAllowedToUseHandle",
+   "type": "error"
+  },
+  {
+   "inputs": [],
+   "name": "ZamaProtocolUnsupported",
+   "type": "error"
+  },
+  {
+   "anonymous": false,
+   "inputs": [
+    {
+     "indexed": true,
+     "internalType": "uint256",
+     "name": "matchId",
+     "type": "uint256"
+    },
+    {
+     "indexed": false,
+     "internalType": "uint8",
+     "name": "round",
+     "type": "uint8"
+    },
+    {
+     "indexed": true,
+     "internalType": "address",
+     "name": "player",
+     "type": "address"
+    }
+   ],
+   "name": "AllocationCommitted",
+   "type": "event"
+  },
+  {
+   "anonymous": false,
+   "inputs": [
+    {
+     "indexed": true,
+     "internalType": "uint256",
+     "name": "matchId",
+     "type": "uint256"
+    },
+    {
+     "indexed": true,
+     "internalType": "address",
+     "name": "player1",
+     "type": "address"
+    },
+    {
+     "indexed": false,
+     "internalType": "bool",
+     "name": "vsBot",
+     "type": "bool"
+    }
+   ],
+   "name": "MatchCreated",
+   "type": "event"
+  },
+  {
+   "anonymous": false,
+   "inputs": [
+    {
+     "indexed": true,
+     "internalType": "uint256",
+     "name": "matchId",
+     "type": "uint256"
+    },
+    {
+     "indexed": true,
+     "internalType": "address",
+     "name": "player2",
+     "type": "address"
+    }
+   ],
+   "name": "PlayerJoined",
+   "type": "event"
+  },
+  {
+   "anonymous": false,
+   "inputs": [
+    {
+     "indexed": true,
+     "internalType": "uint256",
+     "name": "matchId",
+     "type": "uint256"
+    },
+    {
+     "indexed": false,
+     "internalType": "uint8",
+     "name": "round",
+     "type": "uint8"
+    }
+   ],
+   "name": "RoundResolved",
+   "type": "event"
+  },
+  {
+   "anonymous": false,
+   "inputs": [
+    {
+     "indexed": true,
+     "internalType": "uint256",
+     "name": "matchId",
+     "type": "uint256"
+    },
+    {
+     "indexed": false,
+     "internalType": "uint8",
+     "name": "round",
+     "type": "uint8"
+    },
+    {
+     "indexed": true,
+     "internalType": "address",
+     "name": "player",
+     "type": "address"
+    },
+    {
+     "indexed": false,
+     "internalType": "uint8",
+     "name": "vaultIdx",
+     "type": "uint8"
+    },
+    {
+     "indexed": false,
+     "internalType": "bool",
+     "name": "isAlarm",
+     "type": "bool"
+    }
+   ],
+   "name": "VaultScouted",
+   "type": "event"
+  },
+  {
+   "inputs": [],
+   "name": "BASE_CREW",
+   "outputs": [
+    {
+     "internalType": "uint8",
+     "name": "",
+     "type": "uint8"
+    }
+   ],
+   "stateMutability": "view",
+   "type": "function"
+  },
+  {
+   "inputs": [],
+   "name": "MAX_ROUNDS",
+   "outputs": [
+    {
+     "internalType": "uint8",
+     "name": "",
+     "type": "uint8"
+    }
+   ],
+   "stateMutability": "view",
+   "type": "function"
+  },
+  {
+   "inputs": [],
+   "name": "VAULT_COUNT",
+   "outputs": [
+    {
+     "internalType": "uint8",
+     "name": "",
+     "type": "uint8"
+    }
+   ],
+   "stateMutability": "view",
+   "type": "function"
+  },
+  {
+   "inputs": [],
+   "name": "confidentialProtocolId",
+   "outputs": [
+    {
+     "internalType": "uint256",
+     "name": "",
+     "type": "uint256"
+    }
+   ],
+   "stateMutability": "view",
+   "type": "function"
+  },
+  {
+   "inputs": [
+    {
+     "internalType": "bool",
+     "name": "vsBot",
+     "type": "bool"
+    }
+   ],
+   "name": "createMatch",
+   "outputs": [
+    {
+     "internalType": "uint256",
+     "name": "matchId",
+     "type": "uint256"
+    }
+   ],
+   "stateMutability": "nonpayable",
+   "type": "function"
+  },
+  {
+   "inputs": [
+    {
+     "internalType": "uint256",
+     "name": "matchId",
+     "type": "uint256"
+    },
+    {
+     "internalType": "uint8",
+     "name": "roundNum",
+     "type": "uint8"
+    },
+    {
+     "internalType": "uint8",
+     "name": "vaultIdx",
+     "type": "uint8"
+    }
+   ],
+   "name": "getVaultHandles",
+   "outputs": [
+    {
+     "internalType": "euint8",
+     "name": "lootHandle",
+     "type": "bytes32"
+    },
+    {
+     "internalType": "euint8",
+     "name": "alarmHandle",
+     "type": "bytes32"
+    },
+    {
+     "internalType": "ebool",
+     "name": "alarmTrippedHandle",
+     "type": "bytes32"
+    }
+   ],
+   "stateMutability": "view",
+   "type": "function"
+  },
+  {
+   "inputs": [
+    {
+     "internalType": "uint256",
+     "name": "matchId",
+     "type": "uint256"
+    }
+   ],
+   "name": "joinMatch",
+   "outputs": [],
+   "stateMutability": "nonpayable",
+   "type": "function"
+  },
+  {
+   "inputs": [
+    {
+     "internalType": "uint256",
+     "name": "",
+     "type": "uint256"
+    }
+   ],
+   "name": "matches",
+   "outputs": [
+    {
+     "internalType": "address",
+     "name": "player1",
+     "type": "address"
+    },
+    {
+     "internalType": "address",
+     "name": "player2",
+     "type": "address"
+    },
+    {
+     "internalType": "bool",
+     "name": "vsBot",
+     "type": "bool"
+    },
+    {
+     "internalType": "uint8",
+     "name": "currentRound",
+     "type": "uint8"
+    },
+    {
+     "internalType": "enum VaultHeist.MatchState",
+     "name": "state",
+     "type": "uint8"
+    },
+    {
+     "internalType": "euint16",
+     "name": "score1",
+     "type": "bytes32"
+    },
+    {
+     "internalType": "euint16",
+     "name": "score2",
+     "type": "bytes32"
+    }
+   ],
+   "stateMutability": "view",
+   "type": "function"
+  },
+  {
+   "inputs": [],
+   "name": "nextMatchId",
+   "outputs": [
+    {
+     "internalType": "uint256",
+     "name": "",
+     "type": "uint256"
+    }
+   ],
+   "stateMutability": "view",
+   "type": "function"
+  },
+  {
+   "inputs": [
+    {
+     "internalType": "uint256",
+     "name": "matchId",
+     "type": "uint256"
+    },
+    {
+     "internalType": "uint8",
+     "name": "vaultIdx",
+     "type": "uint8"
+    },
+    {
+     "internalType": "bool",
+     "name": "checkAlarm",
+     "type": "bool"
+    }
+   ],
+   "name": "scoutVault",
+   "outputs": [],
+   "stateMutability": "nonpayable",
+   "type": "function"
+  },
+  {
+   "inputs": [
+    {
+     "internalType": "uint256",
+     "name": "matchId",
+     "type": "uint256"
+    },
+    {
+     "internalType": "externalEuint8[3]",
+     "name": "encryptedBids",
+     "type": "bytes32[3]"
+    },
+    {
+     "internalType": "bytes",
+     "name": "inputProof",
+     "type": "bytes"
+    }
+   ],
+   "name": "submitAllocation",
+   "outputs": [],
+   "stateMutability": "nonpayable",
+   "type": "function"
+  }
+ ]
+}

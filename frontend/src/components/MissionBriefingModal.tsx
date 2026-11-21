@@ -12,17 +12,17 @@ const CARDS = [
   {
     icon: <Lock className="size-5 text-amber-400" />,
     title: "Hidden Vaults",
-    body: "3 vaults with secret Loot (30–93) and secret Alarm Limits (6–13), generated and encrypted onchain. Nobody — not even your rival — can see them.",
+    body: "3 vaults with secret Loot (30–93) and secret Alarm Limits (6–13), generated and encrypted onchain. Nobody (not even your rival) can see them.",
   },
   {
     icon: <Eye className="size-5 text-cyan-400" />,
     title: "Private Intel (Scout)",
-    body: "Spend 1 Agent to privately decrypt one vault stat. The result is revealed only on your screen — visible to your wallet alone.",
+    body: "Spend 1 Agent to privately decrypt one vault stat. The result is revealed only on your screen, visible to your wallet alone.",
   },
   {
     icon: <Swords className="size-5 text-emerald-400" />,
     title: "Beat the Rival, Dodge the Alarm",
-    body: "The highest crew wins each vault — unless the combined crew exceeds its hidden Alarm Limit. Trip the alarm, and both crews get 0.",
+    body: "The highest crew wins each vault, unless the combined crew exceeds its hidden Alarm Limit. Trip the alarm, and both crews get 0.",
   },
 ];
 
@@ -34,7 +34,7 @@ export default function MissionBriefingModal({ open, onClose }: Props) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="font-mono text-[11px] font-bold tracking-widest text-amber-400">
-              CLASSIFIED — EYES ONLY
+              CLASSIFIED: EYES ONLY
             </div>
             <h2 className="mt-1 text-2xl font-bold tracking-tight">Mission Briefing</h2>
             <p className="mt-1 text-sm text-slate-400">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Bot, Copy, Crosshair, Eye, History, Loader2, Play, RefreshCw, Swords, Users } from "lucide-react";
+import { Bot, ChevronLeft, ChevronRight, Copy, Crosshair, Eye, Flame, History, Loader2, Play, RefreshCw, Swords, Users } from "lucide-react";
 import { fetchUserMatches, getGameReadContract, type UserMatch } from "../lib/contracts";
+import { currentWinStreak, loadMatchResults } from "../lib/streakStorage";
 
 interface Props {
   busy: string | null;
@@ -29,8 +30,13 @@ export default function Lobby({
   const [showPvp, setShowPvp] = useState(false);
   const [myMatches, setMyMatches] = useState<UserMatch[] | null>(null);
   const [loadingMatches, setLoadingMatches] = useState(false);
+  const [matchPage, setMatchPage] = useState(0);
 
   const isBusy = busy !== null;
+
+  // Win streak dari hasil match Finished yang tercatat lokal (Batch 3).
+  // Dihitung ulang tiap render dari localStorage: murah (maks 50 entri).
+  const winStreak = address ? currentWinStreak(loadMatchResults(address)) : 0;
 
   async function loadMyMatches() {
     if (!address) return;
@@ -45,6 +51,7 @@ export default function Lobby({
   }
 
   useEffect(() => {
+    setMatchPage(0);
     if (address) void loadMyMatches();
     else setMyMatches(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,8 +60,20 @@ export default function Lobby({
   function statusLabel(m: UserMatch): string {
     if (m.info.state === 0) return "Waiting for opponent";
     if (m.info.state === 2) return "Finished";
-    return `In progress — Round ${m.info.currentRound} of 3`;
+    return `In progress: Round ${m.info.currentRound} of 3`;
   }
+
+  const MATCHES_PER_PAGE = 4;
+  const matchPageCount = myMatches
+    ? Math.max(1, Math.ceil(myMatches.length / MATCHES_PER_PAGE))
+    : 1;
+  const safeMatchPage = Math.min(matchPage, matchPageCount - 1);
+  const pageMatches = myMatches
+    ? myMatches.slice(
+        safeMatchPage * MATCHES_PER_PAGE,
+        safeMatchPage * MATCHES_PER_PAGE + MATCHES_PER_PAGE,
+      )
+    : [];
 
   return (
     <div className="rise-in mx-auto w-full max-w-3xl px-4 py-8">
@@ -78,14 +97,14 @@ export default function Lobby({
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
             <Eye className="mb-2 size-5 text-cyan-400" />
             <p className="text-sm leading-snug text-slate-300">
-              Spend 1 Agent to <strong className="text-slate-100">Scout</strong> — privately
+              Spend 1 Agent to <strong className="text-slate-100">Scout</strong>, privately
               decrypt 1 stat via FHE ACL. Only your wallet can read it.
             </p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
             <Bot className="mb-2 size-5 text-emerald-400" />
             <p className="text-sm leading-snug text-slate-300">
-              Outbid your rival — but if the combined agents pass the Alarm Limit,{" "}
+              Outbid your rival, but if the combined agents pass the Alarm Limit,{" "}
               <strong className="text-rose-400">everyone gets 0</strong>.
             </p>
           </div>
@@ -97,10 +116,10 @@ export default function Lobby({
           className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 py-3.5 text-base font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-60"
         >
           {busy === "solo" ? <Loader2 className="size-5 animate-spin" /> : <Play className="size-5" />}
-          Start Solo vs. Syndicate AI
+          Start Solo vs Syndicate AI
         </button>
         <p className="mt-2 text-center text-xs text-slate-500">
-          Instant match — no second wallet needed. 3 rounds, about 2 minutes.
+          Instant match, no second wallet needed. 3 rounds, about 2 minutes.
         </p>
 
         <div className="mt-6 border-t border-slate-800 pt-5">
@@ -186,6 +205,11 @@ export default function Lobby({
             <div className="mb-2 flex items-center gap-2">
               <History className="size-4 text-cyan-400" />
               <span className="text-sm font-semibold text-slate-300">Your Matches</span>
+              {winStreak >= 2 && (
+                <span className="flex items-center gap-1 rounded-full bg-orange-400/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-orange-300">
+                  <Flame className="size-3" /> {winStreak}x Heist Streak
+                </span>
+              )}
               <button
                 onClick={() => void loadMyMatches()}
                 disabled={loadingMatches}
@@ -199,8 +223,9 @@ export default function Lobby({
                 <Loader2 className="size-4 animate-spin" /> Loading your matches from Sepolia…
               </p>
             ) : myMatches && myMatches.length > 0 ? (
+              <>
               <div className="flex flex-col gap-2">
-                {myMatches.map((m) => (
+                {pageMatches.map((m) => (
                   <div
                     key={m.id}
                     className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3"
@@ -236,6 +261,28 @@ export default function Lobby({
                   </div>
                 ))}
               </div>
+              {matchPageCount > 1 && (
+                <div className="mt-3 flex items-center justify-between">
+                  <button
+                    onClick={() => setMatchPage(safeMatchPage - 1)}
+                    disabled={safeMatchPage === 0}
+                    className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold transition hover:bg-slate-700 disabled:opacity-40"
+                  >
+                    <ChevronLeft className="size-3.5" /> Prev
+                  </button>
+                  <span className="font-mono text-xs text-slate-400">
+                    Page {safeMatchPage + 1} of {matchPageCount}
+                  </span>
+                  <button
+                    onClick={() => setMatchPage(safeMatchPage + 1)}
+                    disabled={safeMatchPage >= matchPageCount - 1}
+                    className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold transition hover:bg-slate-700 disabled:opacity-40"
+                  >
+                    Next <ChevronRight className="size-3.5" />
+                  </button>
+                </div>
+              )}
+              </>
             ) : (
               <p className="text-sm text-slate-500">No matches yet for this wallet.</p>
             )}

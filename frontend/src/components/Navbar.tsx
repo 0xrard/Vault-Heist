@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { BookOpen, Coins, Eye, EyeOff, HelpCircle, Loader2, Lock, Vault, Wallet } from "lucide-react";
+import { BookOpen, Coins, Eye, EyeOff, HelpCircle, Loader2, Lock, Vault, Volume2, VolumeX, Wallet } from "lucide-react";
 import type { Signer } from "ethers";
 import { getTokenContract, getTokenReadContract, TOKEN_ADDRESS } from "../lib/contracts";
 import { friendlyError, isZeroHandle, userDecryptHandle } from "../lib/fhe";
+import { isMuted, setMuted } from "../lib/sfx";
 
 interface Props {
   signer: Signer | null;
@@ -14,6 +15,14 @@ interface Props {
   onShowBriefing: () => void;
   onShowPrivacy: () => void;
   lootRefreshKey: number; // naik setiap match selesai -> saldo disembunyikan lagi agar user me-reveal ulang
+}
+
+// Heist Rank dari saldo cLOOT yang SUDAH di-reveal user di sesi ini.
+// Murni turunan dari nilai reveal yang ada: tanpa dekripsi atau baca kontrak baru.
+function heistRank(balance: bigint): string {
+  if (balance >= 20000n) return "Mastermind";
+  if (balance >= 5000n) return "Safecracker";
+  return "Rookie";
 }
 
 export default function Navbar({
@@ -28,6 +37,7 @@ export default function Navbar({
   lootRefreshKey,
 }: Props) {
   const [loot, setLoot] = useState<bigint | null>(null);
+  const [soundMuted, setSoundMuted] = useState(isMuted());
   const [revealing, setRevealing] = useState(false);
   const [sigNote, setSigNote] = useState(false);
   const [shownKey, setShownKey] = useState(0);
@@ -89,17 +99,40 @@ export default function Navbar({
           >
             <HelpCircle className="size-3.5" /> ? How Privacy Works
           </button>
+          <button
+            onClick={() => {
+              const next = !soundMuted;
+              setMuted(next);
+              setSoundMuted(next);
+            }}
+            className="flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-400/60 hover:text-slate-50"
+            aria-label={soundMuted ? "Unmute sounds" : "Mute sounds"}
+            title={soundMuted ? "Unmute sounds" : "Mute sounds"}
+          >
+            {soundMuted ? <VolumeX className="size-3.5" /> : <Volume2 className="size-3.5" />}
+            {soundMuted ? "Muted" : "Sound"}
+          </button>
 
           {signer && getTokenContract(signer) && (
             <div className="flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 py-1 pr-1 pl-3">
               <Coins className="size-4 text-amber-400" />
-              {lootVisible ? (
-                <span className="font-mono text-sm font-semibold text-amber-300">
-                  cLOOT: {loot!.toLocaleString()}
+              <span className="leading-tight">
+                {lootVisible ? (
+                  <span className="block font-mono text-sm font-semibold text-amber-300">
+                    cLOOT: {loot!.toLocaleString()}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 font-mono text-sm text-amber-200/80">
+                    cLOOT: <Lock className="size-3.5" /> Encrypted
+                  </span>
+                )}
+                <span className="block text-[10px] text-amber-200/60">
+                  Testnet reputation points, no monetary value
                 </span>
-              ) : (
-                <span className="flex items-center gap-1.5 font-mono text-sm text-amber-200/80">
-                  cLOOT: <Lock className="size-3.5" /> Encrypted
+              </span>
+              {lootVisible && (
+                <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[11px] font-bold tracking-wide text-amber-200">
+                  {heistRank(loot!)}
                 </span>
               )}
               {lootVisible ? (

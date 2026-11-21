@@ -14,6 +14,7 @@ import {
   saveScout,
 } from "../lib/scoutStorage";
 import { encryptBids, friendlyError, publicDecryptHandles, userDecryptHandle } from "../lib/fhe";
+import { playCoin, playLock, playReveal, playSonar } from "../lib/sfx";
 import { CONTRACT_ADDRESS, fetchMatch, getGameContract, getGameReadContract, type MatchInfo, type RoundRecord } from "../lib/contracts";
 
 interface Props {
@@ -50,6 +51,8 @@ export default function GameArena({
   const [dialogue, setDialogue] = useState<string | null>(null);
   const [submitStage, setSubmitStage] = useState(0); // 0 = idle, 1..4 = tahap progres commit
   const [cachedScoutUsed, setCachedScoutUsed] = useState(false); // cache lokal: scout terpakai, nilai menunggu verifikasi onchain
+  const [scoutAnimate, setScoutAnimate] = useState(false); // Batch 2: cipher scramble hanya untuk reveal Scout segar
+  const [outcomes, setOutcomes] = useState<[boolean, boolean, boolean] | null>(null); // Batch 2: alarm per brankas ronde ini (pintu terbuka)
 
   const contract = useMemo(() => getGameContract(signer), [signer]);
   const readContract = useMemo(() => getGameReadContract(), []);
@@ -98,6 +101,7 @@ export default function GameArena({
           cached.value !== null
         ) {
           // Terverifikasi: cache cocok dengan event onchain -> tampilkan nilai.
+          setScoutAnimate(false);
           setScouted({ vaultIdx: cached.vaultIdx, kind, value: cached.value });
           setPendingScout(null);
         } else {
@@ -124,6 +128,7 @@ export default function GameArena({
         // Verifikasi tidak konklusif (RPC gagal): jatuh kembali ke cache,
         // perilaku yang sama seperti sebelum Batch 1.
         if (cached.value !== null) {
+          setScoutAnimate(false);
           setScouted({
             vaultIdx: cached.vaultIdx,
             kind: cached.checkAlarm ? "alarm" : "loot",
@@ -226,6 +231,9 @@ export default function GameArena({
       CONTRACT_ADDRESS,
       signer
     );
+    // Reveal segar dari dekripsi langsung: jalankan cipher scramble + blip.
+    setScoutAnimate(true);
+    playReveal();
     setScouted({ vaultIdx: p.vaultIdx, kind: p.kind, value: Number(value) });
     setPendingScout(null);
     void persistScout({ vaultIdx: p.vaultIdx, checkAlarm: p.kind === "alarm", value: Number(value) });
@@ -241,8 +249,9 @@ export default function GameArena({
 
   async function handleScout(idx: number, kind: "loot" | "alarm") {
     setBusy(true);
+    playSonar();
     try {
-      setStep("Sending Scout transaction (needs Sepolia gas) — granting decryption access only to your wallet…");
+      setStep("Sending Scout transaction (needs Sepolia gas), granting decryption access only to your wallet…");
       const tx = await contract.scoutVault(matchId, idx, kind === "alarm");
       await tx.wait();
       // Sejak transaksi ini tercatat, budget onchain = 9. Tandai SEKARANG,
@@ -293,9 +302,13 @@ export default function GameArena({
         updated.score2Handle,
       ]);
       const alarms = alarmHandles.map((h) => Boolean(clear[h])) as [boolean, boolean, boolean];
+      setOutcomes(alarms); // pintu brankas terbuka sesuai hasil ronde ini (presentasi saja)
       const s1 = Number(clear[updated.score1Handle] as any);
       const s2 = Number(clear[updated.score2Handle] as any);
       const mapped = myPlayer === 1 ? { you: s1, opp: s2 } : { you: s2, opp: s1 };
+      // Denting koin bila skor pemain naik ronde ini. `scores` di sini adalah
+      // skor awal ronde (arena di-remount tiap ronde), baseline yang tepat.
+      if (mapped.you > scores.you) playCoin();
       onRoundResolved({ round: playedRound, alarms, scoreYou: mapped.you, scoreOpp: mapped.opp }, updated, mapped);
       return true;
     },
@@ -304,6 +317,7 @@ export default function GameArena({
 
   async function handleSubmit() {
     setBusy(true);
+    playLock();
     try {
       const userAddress = await signer.getAddress();
       // Progres 4 tahap (Batch 1 #6) — digerakkan state async asli, bukan timer:
@@ -452,6 +466,8 @@ export default function GameArena({
               scoutUsed={scoutUsed}
               busy={busy}
               locked={waitingOpp || finished}
+              outcome={outcomes ? (outcomes[idx] ? "alarm" : "safe") : null}
+              scoutAnimate={scoutAnimate}
               onBidChange={setBid}
               onScout={handleScout}
             />
@@ -465,7 +481,7 @@ export default function GameArena({
           <Eye className="size-4 shrink-0" />
           <span>
             Your Scout is recorded onchain (this round's budget is now {maxBudget}), but the
-            private decryption hasn't succeeded yet — the relayer is usually just slow.
+            private decryption hasn't succeeded yet, the relayer is usually just slow.
           </span>
           <button
             onClick={handleRetryDecrypt}
@@ -493,7 +509,7 @@ export default function GameArena({
           <CheckCircle2 className="size-5 text-emerald-400" />
           <span className="text-sm text-slate-200">
             {matchInfo.vsBot
-              ? "Allocation committed & encrypted — this round's results are still syncing from the relayer…"
+              ? "Allocation committed & encrypted. This round's results are still syncing from the relayer…"
               : "Allocation committed & encrypted. Waiting for your opponent to commit…"}
           </span>
           <button
@@ -519,7 +535,7 @@ export default function GameArena({
 
       {finished && (
         <div className="mt-5 flex items-center gap-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-200">
-          <Lock className="size-4" /> Match finished — rewards were minted as confidential cLOOT
+          <Lock className="size-4" /> Match finished. Rewards were minted as confidential cLOOT
           (score × 100). Reveal your balance from the top bar.
         </div>
       )}

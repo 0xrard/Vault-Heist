@@ -202,7 +202,7 @@ export function friendlyError(err: any): string {
   const detail = msg ? ` (detail: ${msg.length > 140 ? msg.slice(0, 140) + "…" : msg})` : "";
 
   if (code === "ACTION_REJECTED" || code === 4001 || /user rejected|user denied/i.test(msg)) {
-    return "Rejected in your wallet. The transaction/signature was cancelled — nothing was sent.";
+    return "Rejected in your wallet. The transaction/signature was cancelled. Nothing was sent.";
   }
   if (/insufficient funds/i.test(msg)) {
     return "Not enough Sepolia ETH for gas. Top up from a Sepolia faucet, then try again." + detail;

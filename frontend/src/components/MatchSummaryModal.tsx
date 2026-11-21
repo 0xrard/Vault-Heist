@@ -57,7 +57,7 @@ export default function MatchSummaryModal({
         <div className="text-center">
           <Trophy className={`mx-auto size-12 ${won ? "text-amber-400" : draw ? "text-slate-300" : "text-slate-500"}`} />
           <h2 className="mt-3 text-2xl font-bold">
-            {won ? "Heist Successful!" : draw ? "Split the Take — Draw" : "The Syndicate Got Away"}
+            {won ? "Heist Successful!" : draw ? "Split the Take: Draw" : "The Syndicate Got Away"}
           </h2>
           <p className="mt-1 text-sm text-slate-400">Final score after 3 rounds</p>
           <div className="mt-4 flex items-center justify-center gap-6 font-mono">
@@ -65,7 +65,7 @@ export default function MatchSummaryModal({
               <div className="text-3xl font-bold text-cyan-300">{scoreYou}</div>
               <div className="text-xs tracking-wide text-slate-400">YOU</div>
             </div>
-            <div className="text-xl text-slate-600">—</div>
+            <div className="text-xl text-slate-600">vs</div>
             <div>
               <div className="text-3xl font-bold text-slate-200">{scoreOpp}</div>
               <div className="text-xs tracking-wide text-slate-400">{oppLabel.toUpperCase()}</div>
@@ -80,8 +80,11 @@ export default function MatchSummaryModal({
             </div>
             <p className="mt-1.5 text-sm leading-relaxed text-amber-100/80">
               Your confidential <span className="font-mono font-semibold">cLOOT</span> reward has
-              been minted onchain via ERC-7984 — your score × 100, encrypted as{" "}
+              been minted onchain via ERC-7984, your score × 100, encrypted as{" "}
               <span className="font-mono">euint64</span>.
+            </p>
+            <p className="mt-1 text-[11px] leading-relaxed text-amber-100/60">
+              cLOOT is a testnet reputation point with no monetary value.
             </p>
             {loot !== null ? (
               <div className="mt-3">

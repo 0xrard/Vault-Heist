@@ -12,22 +12,22 @@ const POINTS = [
   {
     icon: <Lock className="size-5 text-amber-400" />,
     title: "Your orders travel in a sealed envelope",
-    body: "When you lock in your agents, your browser seals your numbers inside a locked envelope before anything leaves your device. Even the network only ever sees the envelope — never what's inside.",
+    body: "When you lock in your agents, your browser seals your numbers inside a locked envelope before anything leaves your device. Even the network only ever sees the envelope, never what's inside.",
   },
   {
     icon: <Scale className="size-5 text-cyan-400" />,
     title: "The referee never opens it",
-    body: "A smart contract (the Zama FHE referee) acts as a blind referee: it can add up the sealed orders, compare them against the sealed alarm limits, and declare who won each vault — all without ever opening your envelope.",
+    body: "A smart contract (the Zama FHE referee) acts as a blind referee: it can add up the sealed orders, compare them against the sealed alarm limits, and declare who won each vault, all without ever opening your envelope.",
   },
   {
     icon: <KeyRound className="size-5 text-emerald-400" />,
     title: "Only you hold a key to your intel",
-    body: "When you Scout, the contract grants decryption access to your wallet only. A gas-free signature unlocks that one stat on your screen — it is never posted publicly for others to read.",
+    body: "When you Scout, the contract grants decryption access to your wallet only. A gas-free signature unlocks that one stat on your screen. It is never posted publicly for others to read.",
   },
   {
     icon: <Eye className="size-5 text-violet-300" />,
     title: "Only the results go public",
-    body: "After each round, just the alarm outcomes and the scores are revealed, so both players can verify the result. Your allocations themselves stay sealed — forever.",
+    body: "After each round, just the alarm outcomes and the scores are revealed, so both players can verify the result. Your allocations themselves stay sealed forever.",
   },
 ];
 

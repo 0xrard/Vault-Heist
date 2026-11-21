@@ -22,6 +22,7 @@ import {
   type MatchInfo,
   type RoundRecord,
 } from "./lib/contracts";
+import { recordMatchResult } from "./lib/streakStorage";
 
 export default function App() {
   const [signer, setSigner] = useState<Signer | null>(null);
@@ -271,6 +272,12 @@ export default function App() {
           }
         }
       }
+      // Batch 3: catat hasil match Finished untuk win streak, hanya bila
+      // skor final benar-benar terbaca (scoresKnown). Dedupe per matchId
+      // di dalam recordMatchResult membuat pencatatan ulang aman.
+      if (info.state === 2 && scoresKnown) {
+        recordMatchResult(me, id, sc.you, sc.opp);
+      }
       enterArena(id, info, player, sc, hist);
     } catch (err: any) {
       showError(friendlyError(err));
@@ -287,6 +294,10 @@ export default function App() {
       if (updated.state === 2) {
         setShowSummary(true);
         setLootRefreshKey((k) => k + 1);
+        // Batch 3: catat hasil akhir untuk win streak (dedupe per matchId).
+        if (matchId !== null && addressRef.current) {
+          recordMatchResult(addressRef.current, matchId, mapped.you, mapped.opp);
+        }
       }
       // Backfill: ronde-ronde sebelumnya yang catatannya hilang (pengambilan
       // hasilnya sempat gagal) diisi ulang dari kontrak agar RoundHistory
@@ -328,6 +339,8 @@ export default function App() {
   // resume(): riwayat lengkap, skor terbaru, dan modal akhir bila Finished.
   const resumeRef = useRef(resume);
   resumeRef.current = resume;
+  const addressRef = useRef<string | null>(null);
+  addressRef.current = address;
   const syncingRef = useRef(false);
   useEffect(() => {
     if (screen !== "arena" || matchId === null || !matchInfo || showSummary) return;
@@ -350,7 +363,7 @@ export default function App() {
   }, [screen, matchId, matchInfo?.state, matchInfo?.currentRound, showSummary]);
 
   return (
-    <div className="blueprint-bg min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-slate-950">
       <Navbar
         signer={signer}
         address={address}

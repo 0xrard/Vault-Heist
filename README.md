@@ -66,6 +66,83 @@ Finishing a match mints the player's final score as a **confidential ERC-7984 to
 - **Verifiable Onchain Fairness:** Vault stats and onchain bot allocations are generated with `FHE.randEuint8()` using bitmasking (`FHE.and`) for gas efficiency—neither players nor the deployer know the safe limits.
 - **Branchless Validation & `euint8` Overflow Protection:** Because `100 + 100 + 60 = 260` wraps around to `4` in `uint8`, `_validateBudget()` checks both individual bid caps (`bid <= maxBudget`) and total sum (`sum <= maxBudget`) homomorphically. Invalid or over-budget submissions are silently zeroed out via `FHE.select` without leaking values.
 
+## cLOOT Is Testnet Reputation Points (Non-Monetary)
+
+`cLOOT` exists only on Sepolia testnet. It is a **testnet reputation / confidential
+points** demonstration of the ERC-7984 standard — it has no monetary value, no
+mainnet supply, and no redemption. `reward = finalScore × 100`, minted at the end
+of a match. Farming it in Solo mode costs nothing but Sepolia gas, which is
+expected for a demo and is not a mainnet economic claim.
+
+## Security, Privacy Trade-offs & Mainnet Economy Roadmap
+
+This section documents the findings of an internal design audit (2026-11-21:
+Gemini audit + Muse verification against the deployed contract source). This is
+**not** an external audit. The contract is unaudited; the disclaimer at the top
+of this README stands.
+
+### What stays encrypted, and who can decrypt it
+
+| Asset | Who can decrypt | Status |
+| --- | --- | --- |
+| `vault.loot`, `vault.alarmLimit` | Only a player who called `scoutVault()` (`FHE.allow(handle, msg.sender)`) | Private by ACL |
+| `p1Bids`, `p2Bids` | Only the contract (`FHE.allowThis`); never opened to the public or to the opponent | Private |
+| `alarmTripped`, `score1`, `score2` | Public (`FHE.makePubliclyDecryptable`) after the round ends | Public by design — see leaks below |
+| `cLOOT` balance (ERC-7984) | Only the wallet owner (via `FHE.allowTransient` to `HeistLootToken`) | Private |
+
+### Known limitations (acknowledged, not hidden)
+
+1. **No PvP timeout (most serious).** There is no `deadline`, `claimTimeout`, or
+   `timeout` anywhere in `VaultHeist.sol` (verified by source search). If Player 1
+   has committed and Player 2 goes AFK, the match locks in `Active` forever; a
+   match in `WaitingPlayer` with no joiner cannot be cancelled either. A fix
+   (`roundDeadline` + `claimTimeout()`) is a v3 contract change, deliberately
+   deferred until after the Payday Agent deadline (see below) so the verified v2
+   submission is not disturbed.
+2. **Scout target leaks via event.** `VaultScouted(..., uint8 vaultIdx, bool
+   isAlarm)` (`VaultHeist.sol:59`, emitted at `:155`) is plaintext, as is the
+   `scoutVault` transaction itself. In PvP an observer can learn *which* vault was
+   scouted and whether loot or alarm was checked — but never the value. Framed as
+   design: the opponent reading your scout is a bluff/bait signal. Full privacy
+   would need `vaultIdx` as `externalEuint8` selected via `FHE.select`.
+3. **Public scores imply cLOOT rewards.** `score1`/`score2` are made publicly
+   decryptable (`VaultHeist.sol:315–316`), and the reward formula is public
+   (`score × 100`), so an onchain observer can compute one match's mint — even
+   though the cumulative `cLOOT` balance stays encrypted. Keeping scores private
+   per-player (`FHE.allow(score, player)`) plus a public `p1Won` boolean is the
+   mainnet alternative.
+4. **Loot inference after a round ends (accepted).** If only Vault C is safe and
+   your score rises by 72, observers infer Vault C's loot was 72. Harmless: the
+   round is over and the next round re-randomizes all vaults.
+5. **Second PvP submitter pays the resolve gas.** `_resolveRound` runs inside
+   `submitAllocation` (`VaultHeist.sol:214/216`), so the second submitter bears
+   the FHE computation for all three vaults plus the round-3 `cLOOT` mint. On
+   Sepolia this is not an economic problem, and auto-resolve is the better demo
+   UX (one fewer MetaMask confirmation). A standalone `resolveRound()` is the
+   mainnet alternative.
+6. **Scout after the opponent commits (minor).** In PvP, Player 2 can wait for
+   Player 1's commit before scouting. This leaks nothing — bids stay encrypted —
+   and only gives a small psychological edge.
+
+### Mainnet economy roadmap (not implemented — testnet only)
+
+- **PvP escrow / wager pool:** rewards come from a zero-sum pool staked by both
+  players (cUSDT / cLOOT locked in the contract), never minted from nothing —
+  so two-wallet collusion cannot profit.
+- **Solo daily cap & win-only mint:** Solo rewards capped per day (e.g. max 3
+  rewarded matches/day, further matches are Practice Mode) and full rewards only
+  for beating the bot.
+- **Token sink:** `cLOOT` burnable for one-use tactical items (e.g. Extra Scout,
+  Alarm Jammer) or to unlock a High-Stakes Vault.
+
+### Why v2 stays the submitted version
+
+The deployed v2 contract is Etherscan-verified and a full live match (Match #1)
+completed end-to-end onchain, including `RewardsMinted`. A v3 with timeout and
+anti-farming limits would be a separate deploy only after Payday Agent finishes
+(~7–10 Dec 2026), and only replaces v2 in the submission if it passes the same
+test battery (10/10 unit tests + a full live match).
+
 ---
 
 ## Project Structure

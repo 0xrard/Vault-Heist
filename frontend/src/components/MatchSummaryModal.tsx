@@ -57,7 +57,7 @@ export default function MatchSummaryModal({
         <div className="text-center">
           <Trophy className={`mx-auto size-12 ${won ? "text-amber-400" : draw ? "text-slate-300" : "text-slate-500"}`} />
           <h2 className="mt-3 text-2xl font-bold">
-            {won ? "Heist Successful!" : draw ? "Split the Take — Draw" : "The Bot Got Away"}
+            {won ? "Heist Successful!" : draw ? "Split the Take — Draw" : "The Syndicate Got Away"}
           </h2>
           <p className="mt-1 text-sm text-slate-400">Final score after 3 rounds</p>
           <div className="mt-4 flex items-center justify-center gap-6 font-mono">
@@ -96,14 +96,20 @@ export default function MatchSummaryModal({
                 </div>
               </div>
             ) : (
-              <button
-                onClick={handleReveal}
-                disabled={revealing}
-                className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-60"
-              >
-                {revealing ? <Loader2 className="size-4 animate-spin" /> : <Eye className="size-4" />}
-                Reveal Updated cLOOT Balance
-              </button>
+              <>
+                <button
+                  onClick={handleReveal}
+                  disabled={revealing}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-400 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-60"
+                >
+                  {revealing ? <Loader2 className="size-4 animate-spin" /> : <Eye className="size-4" />}
+                  Reveal Updated cLOOT Balance
+                </button>
+                <p className="mt-2 text-xs leading-relaxed text-amber-100/70">
+                  This is a gas-free signature to privately reveal your encrypted cLOOT balance. It
+                  does not transfer tokens or spend your funds.
+                </p>
+              </>
             )}
           </div>
         )}

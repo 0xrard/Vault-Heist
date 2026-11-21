@@ -71,21 +71,21 @@ export default function Lobby({
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
             <Crosshair className="mb-2 size-5 text-amber-400" />
             <p className="text-sm leading-snug text-slate-300">
-              Allocate <strong className="font-mono text-slate-100">10 Crew Points</strong> across
+              Deploy <strong className="font-mono text-slate-100">10 Agents</strong> across
               3 vaults with hidden Loot &amp; Alarm Limits.
             </p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
             <Eye className="mb-2 size-5 text-cyan-400" />
             <p className="text-sm leading-snug text-slate-300">
-              Spend 1 Crew Point to <strong className="text-slate-100">Scout</strong> — privately
+              Spend 1 Agent to <strong className="text-slate-100">Scout</strong> — privately
               decrypt 1 stat via FHE ACL. Only your wallet can read it.
             </p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3.5">
             <Bot className="mb-2 size-5 text-emerald-400" />
             <p className="text-sm leading-snug text-slate-300">
-              Outbid your rival — but if the combined crew passes the Alarm Limit,{" "}
+              Outbid your rival — but if the combined agents pass the Alarm Limit,{" "}
               <strong className="text-rose-400">everyone gets 0</strong>.
             </p>
           </div>
@@ -97,7 +97,7 @@ export default function Lobby({
           className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 py-3.5 text-base font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-60"
         >
           {busy === "solo" ? <Loader2 className="size-5 animate-spin" /> : <Play className="size-5" />}
-          Start Solo vs. Onchain Bot
+          Start Solo vs. Syndicate AI
         </button>
         <p className="mt-2 text-center text-xs text-slate-500">
           Instant match — no second wallet needed. 3 rounds, about 2 minutes.
@@ -205,7 +205,7 @@ export default function Lobby({
                     key={m.id}
                     className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3"
                   >
-                    <span className="font-mono text-sm font-bold">Match #{m.id}</span>
+                    <span className="font-mono text-sm font-bold">Operation #{m.id}</span>
                     <span
                       className={`rounded-full px-2.5 py-0.5 font-mono text-[11px] font-semibold ${
                         m.info.vsBot

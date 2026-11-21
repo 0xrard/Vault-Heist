@@ -110,20 +110,20 @@ export default function VaultCard({
           disabled={busy || locked || scoutUsed}
           className="flex items-center justify-center gap-1 rounded-lg border border-cyan-400/40 bg-cyan-400/10 px-2 py-2 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Eye className="size-3.5" /> Scout Loot (-1)
+          <Eye className="size-3.5" /> Scout Loot (-1 Agent)
         </button>
         <button
           onClick={() => onScout(idx, "alarm")}
           disabled={busy || locked || scoutUsed}
           className="flex items-center justify-center gap-1 rounded-lg border border-cyan-400/40 bg-cyan-400/10 px-2 py-2 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Eye className="size-3.5" /> Scout Alarm (-1)
+          <Eye className="size-3.5" /> Scout Alarm (-1 Agent)
         </button>
       </div>
 
       <div className="mt-auto border-t border-slate-800 pt-3">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-medium tracking-wide text-slate-400">CREW ALLOCATED</span>
+          <span className="text-xs font-medium tracking-wide text-slate-400">AGENTS ASSIGNED</span>
           <span className="font-mono text-2xl font-bold text-slate-50">{bid}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -131,7 +131,7 @@ export default function VaultCard({
             onClick={() => onBidChange(idx, Math.max(0, bid - 1))}
             disabled={busy || locked || bid <= 0}
             className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-800 transition hover:bg-slate-700 disabled:opacity-40"
-            aria-label="Kurangi kru"
+            aria-label="Remove one agent"
           >
             <Minus className="size-4" />
           </button>
@@ -148,7 +148,7 @@ export default function VaultCard({
             onClick={() => onBidChange(idx, Math.min(maxBid, bid + 1))}
             disabled={busy || locked || bid >= maxBid}
             className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-800 transition hover:bg-slate-700 disabled:opacity-40"
-            aria-label="Tambah kru"
+            aria-label="Add one agent"
           >
             <Plus className="size-4" />
           </button>

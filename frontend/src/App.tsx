@@ -6,6 +6,8 @@ import Lobby from "./components/Lobby";
 import GameArena from "./components/GameArena";
 import RoundHistory from "./components/RoundHistory";
 import MatchSummaryModal from "./components/MatchSummaryModal";
+import MissionBriefingModal from "./components/MissionBriefingModal";
+import PrivacyExplainerModal from "./components/PrivacyExplainerModal";
 import {
   connectSepoliaWallet,
   currentChainId,
@@ -38,8 +40,36 @@ export default function App() {
   const [history, setHistory] = useState<RoundRecord[]>([]);
   const [showSummary, setShowSummary] = useState(false);
   const [lootRefreshKey, setLootRefreshKey] = useState(0);
+  const [briefingOpen, setBriefingOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+
+  // Mission Briefing: tampil sekali untuk pengunjung pertama kali;
+  // dismissal disimpan sebagai boolean di localStorage.
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("vaultheist:briefingSeen")) setBriefingOpen(true);
+    } catch {
+      /* abaikan */
+    }
+  }, []);
+
+  function closeBriefing() {
+    setBriefingOpen(false);
+    try {
+      localStorage.setItem("vaultheist:briefingSeen", "1");
+    } catch {
+      /* abaikan */
+    }
+  }
 
   const showError = useCallback((msg: string) => setError(msg), []);
+
+  // Banner error tidak boleh basi: hilang otomatis setelah 10 detik.
+  useEffect(() => {
+    if (!error) return;
+    const t = setTimeout(() => setError(null), 10000);
+    return () => clearTimeout(t);
+  }, [error]);
 
   useEffect(() => {
     const eth = (window as any).ethereum;
@@ -73,6 +103,7 @@ export default function App() {
 
   async function handleConnect() {
     try {
+      setError(null);
       await ensureWallet();
     } catch (err: any) {
       showError(friendlyError(err));
@@ -81,6 +112,7 @@ export default function App() {
 
   async function handleSwitch() {
     try {
+      setError(null);
       await ensureSepolia();
       setChainId(await currentChainId());
     } catch (err: any) {
@@ -89,6 +121,7 @@ export default function App() {
   }
 
   function enterArena(id: number, info: MatchInfo, player: 1 | 2, sc: { you: number; opp: number }, hist: RoundRecord[]) {
+    setError(null);
     setMatchId(id);
     setMatchInfo(info);
     setMyPlayer(player);
@@ -103,6 +136,7 @@ export default function App() {
 
   async function startSolo() {
     setBusy("solo");
+    setError(null);
     try {
       const s = await ensureWallet();
       const contract = getGameContract(s);
@@ -120,6 +154,7 @@ export default function App() {
 
   async function createPvp() {
     setBusy("create");
+    setError(null);
     try {
       const s = await ensureWallet();
       const contract = getGameContract(s);
@@ -137,6 +172,7 @@ export default function App() {
   async function enterWaiting() {
     if (waitingMatchId === null) return;
     setBusy("enter");
+    setError(null);
     try {
       await ensureWallet();
       const info = await fetchMatch(getGameReadContract(), waitingMatchId);
@@ -154,6 +190,7 @@ export default function App() {
 
   async function joinPvp(id: number) {
     setBusy("join");
+    setError(null);
     try {
       const s = await ensureWallet();
       const contract = getGameContract(s);
@@ -170,6 +207,7 @@ export default function App() {
 
   async function resume(id: number) {
     setBusy("resume");
+    setError(null);
     try {
       const s = await ensureWallet();
       const me = (await s.getAddress()).toLowerCase();
@@ -320,6 +358,8 @@ export default function App() {
         onConnect={handleConnect}
         onSwitchNetwork={handleSwitch}
         onError={showError}
+        onShowBriefing={() => setBriefingOpen(true)}
+        onShowPrivacy={() => setPrivacyOpen(true)}
         lootRefreshKey={lootRefreshKey}
       />
 
@@ -369,12 +409,15 @@ export default function App() {
         This project is not audited, endorsed or operated by Zama. Use at your own risk.
       </footer>
 
+      <MissionBriefingModal open={briefingOpen} onClose={closeBriefing} />
+      <PrivacyExplainerModal open={privacyOpen} onClose={() => setPrivacyOpen(false)} />
+
       {showSummary && signer && matchInfo && (
         <MatchSummaryModal
           signer={signer}
           scoreYou={scores.you}
           scoreOpp={scores.opp}
-          oppLabel={matchInfo.vsBot ? "Onchain Bot" : "Player 2"}
+          oppLabel={matchInfo.vsBot ? "Syndicate AI" : myPlayer === 1 ? "Player 2" : "Player 1"}
           onPlayAgain={() => {
             setShowSummary(false);
             startSolo();

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Coins, Eye, EyeOff, Loader2, Lock, Vault, Wallet } from "lucide-react";
+import { BookOpen, Coins, Eye, EyeOff, HelpCircle, Loader2, Lock, Vault, Wallet } from "lucide-react";
 import type { Signer } from "ethers";
 import { getTokenContract, getTokenReadContract, TOKEN_ADDRESS } from "../lib/contracts";
 import { friendlyError, isZeroHandle, userDecryptHandle } from "../lib/fhe";
@@ -11,6 +11,8 @@ interface Props {
   onConnect: () => void;
   onSwitchNetwork: () => void;
   onError: (msg: string) => void;
+  onShowBriefing: () => void;
+  onShowPrivacy: () => void;
   lootRefreshKey: number; // naik setiap match selesai -> saldo disembunyikan lagi agar user me-reveal ulang
 }
 
@@ -21,10 +23,13 @@ export default function Navbar({
   onConnect,
   onSwitchNetwork,
   onError,
+  onShowBriefing,
+  onShowPrivacy,
   lootRefreshKey,
 }: Props) {
   const [loot, setLoot] = useState<bigint | null>(null);
   const [revealing, setRevealing] = useState(false);
+  const [sigNote, setSigNote] = useState(false);
   const [shownKey, setShownKey] = useState(0);
 
   const wrongNetwork = chainId !== null && chainId !== 11155111n;
@@ -34,6 +39,7 @@ export default function Navbar({
     const token = getTokenReadContract();
     if (!token || !TOKEN_ADDRESS) return;
     setRevealing(true);
+    setSigNote(true);
     try {
       const userAddress = await signer.getAddress();
       const handle = await token.confidentialBalanceOf(userAddress);
@@ -49,6 +55,7 @@ export default function Navbar({
       onError(friendlyError(err));
     } finally {
       setRevealing(false);
+      setSigNote(false);
     }
   }
 
@@ -70,6 +77,19 @@ export default function Navbar({
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button
+            onClick={onShowBriefing}
+            className="flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-amber-400/50 hover:text-amber-300"
+          >
+            <BookOpen className="size-3.5" /> Briefing
+          </button>
+          <button
+            onClick={onShowPrivacy}
+            className="flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-cyan-400/50 hover:text-cyan-300"
+          >
+            <HelpCircle className="size-3.5" /> ? How Privacy Works
+          </button>
+
           {signer && getTokenContract(signer) && (
             <div className="flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 py-1 pr-1 pl-3">
               <Coins className="size-4 text-amber-400" />
@@ -127,6 +147,15 @@ export default function Navbar({
           )}
         </div>
       </div>
+
+      {sigNote && (
+        <div className="mx-auto max-w-6xl px-4 pb-3">
+          <p className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-xs leading-relaxed text-cyan-200">
+            This is a gas-free signature to privately reveal your encrypted cLOOT balance. It does
+            not transfer tokens or spend your funds.
+          </p>
+        </div>
+      )}
     </header>
   );
 }

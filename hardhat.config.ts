@@ -11,6 +11,7 @@ if (fs.existsSync(".env")) {
 }
 
 import "@nomicfoundation/hardhat-ethers";
+import "@nomicfoundation/hardhat-verify";
 import "@fhevm/hardhat-plugin";
 import "@nomicfoundation/hardhat-chai-matchers";
 import "@typechain/hardhat";
@@ -32,6 +33,9 @@ const config: HardhatUserConfig = {
       url: process.env.SEPOLIA_RPC_URL || "",
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
     },
+  },
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY || "",
   },
   mocha: { timeout: 600000 },
   typechain: { outDir: "types", target: "ethers-v6" },

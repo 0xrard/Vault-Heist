@@ -2,6 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Eye, Loader2, Lock, RefreshCw, Send } from "lucide-react";
 import type { Signer } from "ethers";
 import VaultCard, { type ScoutedStat } from "./VaultCard";
+import TxProgress from "./TxProgress";
+import SyndicateBar from "./SyndicateBar";
+import {
+  clearScout,
+  enforceRetention,
+  findScoutOnchain,
+  loadScout,
+  migrateLegacyScout,
+  pruneMatchScouts,
+  saveScout,
+} from "../lib/scoutStorage";
 import { encryptBids, friendlyError, publicDecryptHandles, userDecryptHandle } from "../lib/fhe";
 import { CONTRACT_ADDRESS, fetchMatch, getGameContract, getGameReadContract, type MatchInfo, type RoundRecord } from "../lib/contracts";
 
@@ -36,42 +47,142 @@ export default function GameArena({
   const [step, setStep] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [waitingOpp, setWaitingOpp] = useState(false);
+  const [dialogue, setDialogue] = useState<string | null>(null);
+  const [submitStage, setSubmitStage] = useState(0); // 0 = idle, 1..4 = tahap progres commit
+  const [cachedScoutUsed, setCachedScoutUsed] = useState(false); // cache lokal: scout terpakai, nilai menunggu verifikasi onchain
 
   const contract = useMemo(() => getGameContract(signer), [signer]);
   const readContract = useMemo(() => getGameReadContract(), []);
 
-  // Status Scout dipulihkan dari localStorage: transaksi Scout bisa berhasil
-  // onchain sementara dekripsinya gagal (relayer lambat) — tanpa ini, UI tidak
-  // tahu Scout sudah terpakai dan budget-nya tidak sinkron dengan kontrak.
-  const storageKey = `vh-scout-${matchId}-${round}`;
-  useEffect(() => {
+  // Persistensi Scout (Batch 1 #7, lihat lib/scoutStorage.ts): transaksi Scout
+  // bisa berhasil onchain sementara dekripsinya gagal (relayer lambat) — tanpa
+  // cache, UI tidak tahu Scout sudah terpakai dan budget desync dari kontrak.
+  // Tapi cache TIDAK pernah dipercaya begitu saja: saat arena dimuat, status
+  // Scout diverifikasi dulu ke event VaultScouted onchain. Flag "scout used"
+  // dari cache langsung dipakai agar budget benar sejak paint pertama, namun
+  // NILAI dekripsinya baru ditampilkan setelah chain mengonfirmasi vault +
+  // jenis stat yang sama (atau verifikasi tidak konklusif -> fallback cache).
+  async function persistScout(entry: { vaultIdx: number; checkAlarm: boolean; value: number | null }) {
     try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const saved = JSON.parse(raw);
-        if (saved.scouted) setScouted(saved.scouted);
-        else if (saved.pendingScout) setPendingScout(saved.pendingScout);
-      }
+      const wallet = (await signer.getAddress()).toLowerCase();
+      saveScout(CONTRACT_ADDRESS, matchId, round, wallet, entry);
     } catch {
-      /* abaikan */
+      /* abaikan — Scout tetap tercatat onchain */
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storageKey]);
-  useEffect(() => {
-    try {
-      if (scouted) localStorage.setItem(storageKey, JSON.stringify({ scouted }));
-      else if (pendingScout) localStorage.setItem(storageKey, JSON.stringify({ pendingScout }));
-    } catch {
-      /* abaikan */
-    }
-  }, [storageKey, scouted, pendingScout]);
+  }
 
-  const scoutUsed = scouted !== null || pendingScout !== null;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      enforceRetention();
+      let wallet: string;
+      try {
+        wallet = (await signer.getAddress()).toLowerCase();
+      } catch {
+        return;
+      }
+      if (cancelled) return;
+      migrateLegacyScout(matchId, round, CONTRACT_ADDRESS, wallet);
+      const cached = loadScout(CONTRACT_ADDRESS, matchId, round, wallet);
+      if (cached) setCachedScoutUsed(true);
+
+      const chain = await findScoutOnchain(readContract, matchId, round, wallet);
+      if (cancelled) return;
+
+      if (chain && chain.found) {
+        const kind = chain.checkAlarm ? ("alarm" as const) : ("loot" as const);
+        if (
+          cached &&
+          cached.vaultIdx === chain.vaultIdx &&
+          cached.checkAlarm === chain.checkAlarm &&
+          cached.value !== null
+        ) {
+          // Terverifikasi: cache cocok dengan event onchain -> tampilkan nilai.
+          setScouted({ vaultIdx: cached.vaultIdx, kind, value: cached.value });
+          setPendingScout(null);
+        } else {
+          // Chain menang: Scout terpakai di vault ini (mungkin dari browser
+          // lain / cache basi) — nilainya belum ada di browser ini, tawarkan
+          // dekripsi ulang gratis lewat panel pending.
+          setScouted(null);
+          setPendingScout({ vaultIdx: chain.vaultIdx, kind });
+          if (!cached || cached.vaultIdx !== chain.vaultIdx || cached.checkAlarm !== chain.checkAlarm) {
+            saveScout(CONTRACT_ADDRESS, matchId, round, wallet, {
+              vaultIdx: chain.vaultIdx,
+              checkAlarm: chain.checkAlarm,
+              value: null,
+            });
+          }
+        }
+        setCachedScoutUsed(false);
+      } else if (chain && !chain.found) {
+        // Query berhasil dan tidak ada event Scout untuk ronde ini: cache
+        // (kalau ada) tidak bisa dipercaya — buang.
+        if (cached) clearScout(CONTRACT_ADDRESS, matchId, round, wallet);
+        setCachedScoutUsed(false);
+      } else if (cached) {
+        // Verifikasi tidak konklusif (RPC gagal): jatuh kembali ke cache,
+        // perilaku yang sama seperti sebelum Batch 1.
+        if (cached.value !== null) {
+          setScouted({
+            vaultIdx: cached.vaultIdx,
+            kind: cached.checkAlarm ? "alarm" : "loot",
+            value: cached.value,
+          });
+        } else {
+          setPendingScout({
+            vaultIdx: cached.vaultIdx,
+            kind: cached.checkAlarm ? "alarm" : "loot",
+          });
+        }
+        setCachedScoutUsed(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchId, round]);
+
+  const scoutUsed = scouted !== null || pendingScout !== null || cachedScoutUsed;
   const maxBudget = scoutUsed ? BASE_BUDGET - 1 : BASE_BUDGET;
   const total = bids[0] + bids[1] + bids[2];
   const overBudget = total > maxBudget;
   const finished = matchInfo.state === 2;
-  const oppLabel = matchInfo.vsBot ? "Onchain Bot" : "Player 2";
+  const oppLabel = matchInfo.vsBot ? "Syndicate AI" : myPlayer === 1 ? "Player 2" : "Player 1";
+
+  // Dialog Syndicate AI — pembuka ronde (hanya mode Solo; komponen di-remount
+  // tiap ronde oleh App, jadi effect ini berjalan sekali per ronde).
+  useEffect(() => {
+    if (!matchInfo.vsBot || finished) return;
+    setDialogue(
+      round === 1 ? "Another crew thinks they can outsmart us?" : "Three vaults. Don't get greedy."
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reaksi Syndicate AI saat match berakhir + pruning cache Scout match ini
+  // (kontrak: entri dibersihkan begitu match Finished / state === 2).
+  useEffect(() => {
+    if (!finished) return;
+    if (matchInfo.vsBot) {
+      setDialogue(
+        scores.you > scores.opp
+          ? "Impossible... You cracked our vault!"
+          : scores.you === scores.opp
+            ? "A standoff. Neither crew walks away clean."
+            : "The Syndicate always collects its dues."
+      );
+    }
+    (async () => {
+      try {
+        const wallet = (await signer.getAddress()).toLowerCase();
+        pruneMatchScouts(CONTRACT_ADDRESS, matchId, wallet);
+      } catch {
+        /* abaikan */
+      }
+    })();
+  }, [finished, scores.you, scores.opp, matchInfo.vsBot, matchId, signer]);
 
   // Ambil handle ciphertext brankas ronde ini (hanya untuk pratinjau terpotong di UI)
   useEffect(() => {
@@ -106,7 +217,9 @@ export default function GameArena({
   // Dekripsi hasil Scout yang transaksinya SUDAH tercatat onchain.
   // Dipisah dari handleScout agar bisa di-retry tanpa transaksi baru.
   async function decryptPending(p: { vaultIdx: number; kind: "loot" | "alarm" }) {
-    setStep("Sign the EIP-712 request to privately decrypt this stat…");
+    setStep(
+      "This is a gas-free signature to privately reveal your scouted intelligence. It does not transfer tokens or spend your funds."
+    );
     const [lootHandle, alarmHandle] = await readContract.getVaultHandles(matchId, round, p.vaultIdx);
     const value = await userDecryptHandle(
       p.kind === "alarm" ? alarmHandle : lootHandle,
@@ -115,6 +228,7 @@ export default function GameArena({
     );
     setScouted({ vaultIdx: p.vaultIdx, kind: p.kind, value: Number(value) });
     setPendingScout(null);
+    void persistScout({ vaultIdx: p.vaultIdx, checkAlarm: p.kind === "alarm", value: Number(value) });
   }
 
   // Kontrak menolak karena status match di onchain sudah berubah (mis. sudah
@@ -128,13 +242,15 @@ export default function GameArena({
   async function handleScout(idx: number, kind: "loot" | "alarm") {
     setBusy(true);
     try {
-      setStep("Sending Scout transaction — granting ACL only to your wallet…");
+      setStep("Sending Scout transaction (needs Sepolia gas) — granting decryption access only to your wallet…");
       const tx = await contract.scoutVault(matchId, idx, kind === "alarm");
       await tx.wait();
       // Sejak transaksi ini tercatat, budget onchain = 9. Tandai SEKARANG,
       // sebelum dekripsi dicoba, agar UI tidak pernah desync dari kontrak.
       const p = { vaultIdx: idx, kind };
       setPendingScout(p);
+      void persistScout({ vaultIdx: idx, checkAlarm: kind === "alarm", value: null });
+      if (matchInfo.vsBot) setDialogue("Trying to peek behind our doors?");
       await decryptPending(p);
     } catch (err: any) {
       if (isStaleStateError(err)) onResync();
@@ -160,12 +276,12 @@ export default function GameArena({
 
   // Setelah commit: baca ulang match; bila ronde sudah beres, dekripsi publik hasilnya
   const collectResolution = useCallback(
-    async (playedRound: number): Promise<boolean> => {
+    async (playedRound: number, quiet = false): Promise<boolean> => {
       const updated = await fetchMatch(readContract, matchId);
       const resolved = updated.currentRound !== playedRound || updated.state === 2;
       if (!resolved) return false;
 
-      setStep("Decrypting public round results (alarms & scores)…");
+      if (!quiet) setStep("Decrypting public round results (alarms & scores)…");
       const alarmHandles: string[] = [];
       for (let i = 0; i < 3; i++) {
         const [, , alarmTripped] = await readContract.getVaultHandles(matchId, playedRound, i);
@@ -190,17 +306,22 @@ export default function GameArena({
     setBusy(true);
     try {
       const userAddress = await signer.getAddress();
-      setStep("Encrypting your crew allocation in browser (FHE WASM)…");
+      // Progres 4 tahap (Batch 1 #6) — digerakkan state async asli, bukan timer:
+      // 1 enkripsi FHE berjalan -> 2 menunggu tanda tangan MetaMask ->
+      // 3 menunggu tx.wait() -> 4 ambil state + publicDecrypt hasil ronde.
+      setSubmitStage(1);
       const { handles: encHandles, inputProof } = await encryptBids(CONTRACT_ADDRESS, userAddress, bids);
 
-      setStep("Please confirm the transaction in MetaMask…");
+      setSubmitStage(2);
       const tx = await contract.submitAllocation(matchId, encHandles, inputProof);
-      setStep("Waiting for Sepolia confirmation & homomorphic resolution…");
+      setSubmitStage(3);
       await tx.wait();
+      if (matchInfo.vsBot) setDialogue("Orders received. Let's see who's smarter.");
 
+      setSubmitStage(4);
       let done = false;
       try {
-        done = await collectResolution(round);
+        done = await collectResolution(round, true);
       } catch {
         // Transaksi commit SUDAH tercatat onchain; yang gagal hanya mengambil
         // hasilnya dari relayer. Jangan tinggalkan arena mati: tampilkan panel
@@ -216,6 +337,7 @@ export default function GameArena({
       else onError(friendlyError(err));
       setStep(null);
     } finally {
+      setSubmitStage(0);
       setBusy(false);
     }
   }
@@ -234,7 +356,7 @@ export default function GameArena({
     }
   }
 
-  const steps = ["1. Scout (Optional)", "2. Allocate Crew", "3. Resolve Round"];
+  const steps = ["1. Scout (Optional)", "2. Assign Agents", "3. Resolve Round"];
 
   return (
     <div className="rise-in mx-auto w-full max-w-6xl px-4 py-6">
@@ -256,8 +378,11 @@ export default function GameArena({
             {i < 2 && <span className="text-slate-600">→</span>}
           </div>
         ))}
-        <span className="ml-auto font-mono text-xs text-slate-500">Match #{matchId}</span>
+        <span className="ml-auto font-mono text-xs text-slate-500">OPERATION #{matchId}</span>
       </div>
+
+      {/* Dialog Syndicate AI (mode Solo saja) */}
+      {matchInfo.vsBot && dialogue && <SyndicateBar line={dialogue} />}
 
       {/* HUD */}
       <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-slate-800 bg-slate-900/90 px-5 py-4">
@@ -278,7 +403,7 @@ export default function GameArena({
         </div>
         <div className="ml-auto min-w-56">
           <div className="mb-1.5 flex items-center justify-between text-[11px] tracking-widest text-slate-500">
-            <span>CREW BUDGET</span>
+            <span>AGENTS READY</span>
             <span className={`font-mono text-xs font-bold ${overBudget ? "text-rose-400" : "text-slate-300"}`}>
               {total} / {maxBudget}
               {scoutUsed ? " (Scout used)" : ""}
@@ -302,11 +427,11 @@ export default function GameArena({
           </div>
           {overBudget && (
             <p className="mt-1.5 text-xs text-rose-400">
-              Total exceeds this round's budget ({maxBudget}). Reduce your allocation first.
+              Total exceeds this round's agent budget ({maxBudget}). Reduce your assignment first.
             </p>
           )}
           {total === 0 && !finished && (
-            <p className="mt-1.5 text-xs text-slate-500">Allocate at least 1 crew to commit.</p>
+            <p className="mt-1.5 text-xs text-slate-500">Assign at least 1 agent to lock in.</p>
           )}
         </div>
       </div>
@@ -352,6 +477,9 @@ export default function GameArena({
         </div>
       )}
 
+      {/* Progres transaksi commit 4 tahap (state async asli, bukan timer) */}
+      {submitStage > 0 && <TxProgress stage={submitStage} />}
+
       {/* Banner langkah / status */}
       {step && (
         <div className="mt-5 flex items-center gap-3 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-sm text-cyan-200">
@@ -384,7 +512,7 @@ export default function GameArena({
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 py-3.5 text-base font-bold text-slate-950 transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {busy ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}
-            Encrypt &amp; Commit Allocation
+            LOCK IN &amp; START HEIST
           </button>
         )
       )}

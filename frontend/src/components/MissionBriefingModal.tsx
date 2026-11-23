@@ -51,7 +51,7 @@ export default function MissionBriefingModal({ open, onClose }: Props) {
         </div>
 
         <div className="mt-5 flex flex-col gap-3">
-          {CARDS.map((c, i) => (
+          {CARDS.map((c) => (
             <div
               key={c.title}
               className="flex gap-3.5 rounded-xl border border-slate-800 bg-slate-950/60 p-4"
@@ -60,10 +60,7 @@ export default function MissionBriefingModal({ open, onClose }: Props) {
                 {c.icon}
               </span>
               <div className="leading-snug">
-                <div className="text-sm font-bold text-slate-100">
-                  <span className="mr-1.5 font-mono text-xs text-slate-500">{i + 1}.</span>
-                  {c.title}
-                </div>
+                <div className="text-sm font-bold text-slate-100">{c.title}</div>
                 <p className="mt-0.5 text-sm leading-relaxed text-slate-400">{c.body}</p>
               </div>
             </div>

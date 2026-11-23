@@ -101,8 +101,8 @@ export interface RoundRecord {
 // ditemukan atau ada chunk yang gagal) — pemanggil tidak boleh
 // menyimpulkan apa pun dari hasil itu.
 // ---------------------------------------------------------------------------
-export const LOG_CHUNK_BLOCKS = 45000;
-const MAX_ANCHOR_CHUNKS = 48; // ~2,16 juta blok ke belakang untuk mencari MatchCreated
+export const LOG_CHUNK_BLOCKS = 10000;
+const MAX_ANCHOR_CHUNKS = 48; // ~480 ribu blok ke belakang untuk mencari MatchCreated
 
 // ---------------------------------------------------------------------------
 // Cache blok jangkar MatchCreated (Batch 6, P1).

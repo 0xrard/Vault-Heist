@@ -38,11 +38,20 @@ On a public blockchain, simultaneous strategy games suffer from two fatal flaws:
 
 ## Judge Quick-Start (Under 2 Minutes on Sepolia)
 
-1. Open the Live Demo (link above) and connect MetaMask on **Ethereum Sepolia**.
+1. Open the Live Demo (link above) and connect a Web3 wallet (MetaMask, Rabby, or any injected wallet) on **Ethereum Sepolia**.
 2. Click **"Start Solo vs Syndicate AI"** (no second wallet required).
 3. *(Optional)* Click **Scout Loot (-1 Agent)** or **Scout Alarm (-1 Agent)** on any vault, confirm the transaction, and sign the gas-free **EIP-712** prompt to privately decrypt that vault's secret value.
 4. Allocate your agents across Vaults A, B, and C, then click **LOCK IN & START HEIST**.
 5. View the decrypted alarm triggers and updated scoreboard, and finish all 3 rounds.
+
+**Playing PvP (2 players, 2 wallets):** Player 1 opens **PvP Mode** and clicks **Create PvP Match**, then shares the resulting Operation number with Player 2. Player 2 enters that number under **Join Match by ID** and clicks **Join** (one Sepolia transaction), and the match starts. Both players then play each round exactly as in Solo — Scout optionally, allocate, LOCK IN — and the round resolves inside the second player's commit.
+
+**Good to know (frontend behavior):**
+
+- Your wallet reconnects silently on every visit — no Connect click — unless you explicitly Disconnect from the wallet menu.
+- Refreshing mid-match (same tab) drops you straight back into your arena. Closing the tab ends the visit: reopening lands in the lobby, and you re-enter deliberately with **Resume** in Your Matches, or **Resume Match by ID** for any match number.
+- The **Leave Match** button in the arena only exits the view; the match stays active onchain and resumable.
+- Your Matches lists finished matches permanently. Unfinished matches are hidden automatically after 30 minutes, so stale rooms do not pile up — they still exist onchain and stay reachable via Resume Match by ID.
 
 ---
 
@@ -60,7 +69,7 @@ On a public blockchain, simultaneous strategy games suffer from two fatal flaws:
 
 ### Confidential Reward Token — `cLOOT` (ERC-7984)
 
-Finishing a match mints the player's final score as a **confidential ERC-7984 token** (`HeistLootToken`, symbol `cLOOT`, built on OpenZeppelin Confidential Contracts): `reward = finalScore × 100`, computed homomorphically from the encrypted score (`euint16` → `euint64`) and minted cross-contract via a transient ACL grant (`FHE.allowTransient`). Balances are encrypted `euint64` values — only the owner can decrypt their own balance, via the same EIP-712 user-decryption flow as Scout (the frontend's **Reveal Balance** button). In PvP both players are paid; in Solo mode only the human player (the bot has no wallet).
+Finishing a match mints the player's final score as a **confidential ERC-7984 token** (`HeistLootToken`, symbol `cLOOT`, built on OpenZeppelin Confidential Contracts): `reward = finalScore × 100`, computed homomorphically from the encrypted score (`euint16` → `euint64`) and minted cross-contract via a transient ACL grant (`FHE.allowTransient`). Balances are encrypted `euint64` values — only the owner can decrypt their own balance, via the same EIP-712 user-decryption flow as Scout (the frontend's **Reveal** button, in the cLOOT pill at the top). In PvP both players are paid; in Solo mode only the human player (the bot has no wallet).
 
 ### Key Technical Safeguards
 - **Verifiable Onchain Fairness:** Vault stats and onchain bot allocations are generated with `FHE.randEuint8()` using bitmasking (`FHE.and`) for gas efficiency—neither players nor the deployer know the safe limits.
@@ -166,7 +175,9 @@ vault-heist/
         │                       # PrivacyExplainerModal, SyndicateBar, TxProgress,
         │                       # CinematicReveal
         └── lib/                # contracts.ts, fhe.ts, scoutStorage.ts, sfx.ts,
-                                # streakStorage.ts, usePrefersReducedMotion.ts
+                                # streakStorage.ts, usePrefersReducedMotion.ts,
+                                # pendingTxStorage.ts (crash-safe transaction recovery),
+                                # sessionStorage.ts (silent reconnect + session restore)
 ```
 
 ## Local Setup & Testing
@@ -178,6 +189,8 @@ npm install
 npx hardhat compile
 npx hardhat test
 ```
+
+The suite is 13 tests across three active files, all run by the command above: `test/VaultHeist.test.ts` (match-flow scenarios A–E), `test/VaultHeist.test.js` (numbered gameplay validations), and `test/ClootRewards.test.js` (cLOOT minting and balance confidentiality). The deploy entry point is `scripts/deploy.ts`.
 
 ### 2. Deploy to Sepolia
 

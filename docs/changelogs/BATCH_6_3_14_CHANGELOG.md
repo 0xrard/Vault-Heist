@@ -2,7 +2,7 @@
 
 **Date:** 23 November 2026
 **Type:** One component changed (`frontend/src/components/Lobby.tsx`). Display behavior only — no list logic, no data flow, no contract or config changes. Post-freeze batch under the freeze rule, re-frozen on completion.
-**Trigger:** Nino, looking at the live lobby: the Your Matches history could work like the PvP Mode section — openable and closable — so the lobby stays focused on starting a game.
+**Trigger:** Looking at the live lobby: the Your Matches history could work like the PvP Mode section — openable and closable — so the lobby stays focused on starting a game.
 
 ## Change
 
@@ -15,4 +15,4 @@
 
 - `npx tsc --noEmit` — exit 0. `npm run build` — exit 0. `npx hardhat test` — 13 passing, 0 failing (contracts untouched; run for the freeze record).
 - Locked-file MD5s unchanged.
-- Live check after Nino's deploy: the lobby should open with Your Matches collapsed (count visible), expand on click with the full list and pagination, and collapse again.
+- Live check after deploy: the lobby should open with Your Matches collapsed (count visible), expand on click with the full list and pagination, and collapse again.

@@ -14,7 +14,7 @@ interface Props {
   onEnterWaiting: () => void;
 }
 
-// Batch 6.3.9 (Nino's rule): finished matches stay in the list
+// Batch 6.3.9 (design rule): finished matches stay in the list
 // permanently, but an unfinished match (waiting or in progress) is
 // hidden automatically once it is more than 30 minutes old, so stale
 // rooms stop cluttering the list. This is a display filter only —
@@ -53,7 +53,7 @@ export default function Lobby({
   const [resumeId, setResumeId] = useState("");
   const [copied, setCopied] = useState(false);
   const [showPvp, setShowPvp] = useState(false);
-  // Batch 6.3.14 (Nino's request): the Your Matches history is
+  // Batch 6.3.14: the Your Matches history is
   // collapsible with the same toggle pattern as PvP Mode above —
   // closed by default so the lobby stays focused on starting a game.
   // Display only; the list logic (6.3.9 filter, pagination) is untouched.

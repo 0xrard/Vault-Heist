@@ -142,7 +142,7 @@ export function clearDisconnectedMarker(): void {
 // A refresh and "closed the tab and came back later" are both plain
 // page loads; the only browser primitive that separates them is
 // sessionStorage, which survives a refresh inside the same tab but is
-// discarded when the tab closes. Design call (Nino, 23 Nov): a refresh
+// discarded when the tab closes. Design call (23 Nov): a refresh
 // is an accident to recover from (restore the arena automatically),
 // while closing the tab is leaving — the next visit starts in the
 // lobby and re-entry is a deliberate Resume click. The first load in

@@ -2,7 +2,7 @@
 
 **Date:** 23 November 2026
 **Type:** Pure visual readability fix (one file, one CSS class line). No logic changes, no contract changes.
-**Trigger:** Nino's note from a QA screenshot (match #15): the range numbers on the Loot ("30–93") and Alarm Limit ("6–13") rows of the vault cards were too small and too dim to read.
+**Trigger:** A note from a QA screenshot (match #15): the range numbers on the Loot ("30–93") and Alarm Limit ("6–13") rows of the vault cards were too small and too dim to read.
 
 ## Root cause
 
@@ -40,4 +40,4 @@ There is no functional regression risk: the change is only a presentation class 
 
 ## Status
 
-Done in the local tree. Not yet zipped and not yet deployed to production — awaiting Nino's request (zip rule: a zip is made only when requested).
+Done in the local tree. Not yet zipped and not yet deployed to production. (Zip rule: a zip is made only on request.)

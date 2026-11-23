@@ -170,10 +170,10 @@ locked files are byte-identical before and after (see section 5):
 
 ## 6. Not covered by automated verification
 
-The frontend has no automated UI test suite. The following need Nino's
+The frontend has no automated UI test suite. The following need a
 live Sepolia session and are NOT verified by this batch: overlay pacing
 and feel (per-vault ~0.95 s, ~4 s total, tap-to-skip) on desktop and on
-his phone; CLASSIFIED stamp readability and tooltip behavior; slider
+mobile; CLASSIFIED stamp readability and tooltip behavior; slider
 tick subtlety during a real drag; confirmation sounds landing exactly on
 transaction success vs rejection in MetaMask; streak milestone lines
 appearing at exactly 3 / 5 / 10 consecutive wins; reduced-motion behavior

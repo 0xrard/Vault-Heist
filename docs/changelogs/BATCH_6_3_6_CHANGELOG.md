@@ -1,7 +1,7 @@
 # Batch 6.3.6 — Gas Limit Floor for submitAllocation (Estimation Race Fix)
 
 A frontend fix from the live PvP QA finding in match #13 (23 Nov 2026,
-approved by Nino): the "commit transaction was sent but could not be
+pre-approved in review): the "commit transaction was sent but could not be
 confirmed yet" panel appeared twice for the same wallet (rounds 2 and 3),
 even though the game ultimately ran smoothly and the match completed 3 rounds.
 Onchain forensics across all six of that wallet's transactions proved

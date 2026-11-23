@@ -1,6 +1,6 @@
 # Batch 6.3.4 — Scan Chunk Size Correction (Live QA Blocker Fix)
 
-A single-constant patch from Nino's live QA finding (23 Nov 2026): in the two-wallet
+A single-constant patch from a live QA finding (23 Nov 2026): in the two-wallet
 PvP test, every arena control stayed permanently locked and the
 RETRY STATUS CHECK button felt unresponsive. The root cause was not in the
 fail-closed logic (which worked exactly as designed in Batch 6–6.3.3),
@@ -44,7 +44,7 @@ becomes ~480 thousand blocks, still about 30 times the contract's entire history
 
 - **Smoke test of the app's scan pattern against the live RPC** (a throwaway node script
   using ethers + the real ABI + the exact same chunk pattern, for
-  match #9, which Nino was playing): tip 12.193.693; the
+  match #9, played in that session): tip 12.193.693; the
   MatchCreated(9) anchor was found in the first chunk at block 12.193.665;
   the forward AllocationCommitted(9) scan completed conclusively with 0 logs (correct:
   no player had committed in that round yet); 1,7 seconds total.
@@ -67,4 +67,4 @@ becomes ~480 thousand blocks, still about 30 times the contract's entire history
   player runs; the old build (45.000-block chunks) still cannot complete
   verification against this endpoint.
 - Further live testing (PvP completing 3 rounds, pending + refresh, and the rest of the
-  QA list) remains in Nino's hands once this build is deployed.
+  QA list) remains a manual step once this build is deployed.

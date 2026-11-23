@@ -2,7 +2,7 @@
 
 **Date:** 23 November 2026
 **Type:** Frontend-only, display-layer change (one new read helper, one list filter, one explanatory note). No contract changes, no arena changes. Post-freeze batch: issued under the freeze rule (new batch number + changelog + re-verification) and re-frozen on completion.
-**Trigger:** Nino's product call during the 6.3.8 freeze session: the lobby match list accumulates unfinished matches forever. His rule: an unfinished match older than 30 minutes disappears from the list automatically; the history should contain only matches that were fully played (3 rounds, Finished).
+**Trigger:** A product call during the 6.3.8 freeze session: the lobby match list accumulates unfinished matches forever. The rule: an unfinished match older than 30 minutes disappears from the list automatically; the history should contain only matches that were fully played (3 rounds, Finished).
 
 ## The rule, exactly as implemented
 
@@ -25,4 +25,4 @@ Nothing is — or can be — deleted onchain: the contract has no delete functio
 - `npx tsc --noEmit` — exit 0. `npm run build` — exit 0.
 - Locked-file MD5s unchanged (contracts, fhe.ts, ABIs, .env).
 - Filter behavior pre-verified against live chain data for the QA wallet before shipping (see the delivery note): stale unfinished matches (#11, #12, #16, #18) resolve to hidden; finished matches (#13, #17) resolve to kept.
-- Live re-test by Nino on the production deployment: pending at freeze time (list contents after push).
+- Live re-test on the production deployment: pending at freeze time (list contents after push).

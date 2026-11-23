@@ -43,7 +43,7 @@ No other files were modified.
 - **Storage footprint:** at most one small JSON per (context, kind); records for contexts never revisited stay stored but inert, because keying + full identity validation mean they can only ever load for that exact context.
 - **Private-mode browsers:** localStorage unavailable → the refresh hole remains in that environment by necessity; in-session protection (6.1/6.2) is unaffected.
 
-## Acceptance criteria (Nino's Batch 6.3 list) — by construction
+## Acceptance criteria (the Batch 6.3 list) — by construction
 
 | # | Scenario | Result | Deciding path |
 | --- | --- | --- | --- |
@@ -55,7 +55,7 @@ No other files were modified.
 | F | Wallet switched after reload | Other wallet's record has no effect | Storage key contains the sender and `loadPendingTx` validates the stored sender against the connected wallet; a different wallet loads nothing |
 | G | Match/round moved on | Stale record has no effect | Key + identity validation bind a record to one (matchId, round); the new arena's context never matches it |
 
-No live pending-transaction or RPC-failure simulation was run for this table; each row is satisfied by the code path named, and the live versions remain Nino's manual QA (send tx, leave pending, refresh, confirm controls stay locked; two-wallet PvP; Solo 3 rounds).
+No live pending-transaction or RPC-failure simulation was run for this table; each row is satisfied by the code path named, and the live versions remain manual QA (send tx, leave pending, refresh, confirm controls stay locked; two-wallet PvP; Solo 3 rounds).
 
 ## Verification (executed fresh on the final tree)
 
@@ -83,11 +83,11 @@ No live pending-transaction or RPC-failure simulation was run for this table; ea
 
 - The ref mirror became per-kind rather than a single record (6.2 kept one record for both kinds). Reason: persisted records are inherently per-kind (independent storage keys), and a single-slot mirror would have let a Scout record evict a commit record from the ref while its storage entry survived, desynchronizing the three stores this batch exists to keep together. Panel behavior (one displayed record) is unchanged.
 
-## Addendum — storage-unavailable warning (Nino's Batch 6.3 review)
+## Addendum — storage-unavailable warning (Batch 6.3 review)
 
 Raised in review: when localStorage is unavailable, persistence silently degraded to Batch 6.2 in-memory behavior, so the UI could appear refresh-protected when it was not. Fix, same batch, no scope change:
 
 - `pendingTxStorage.ts` exports `isPendingTxStorageAvailable()`: a real write/read-back/remove cycle on the dedicated key `vaultheist:pendingtx:__probe__` inside try/catch, true only if the full cycle succeeds; the result is cached at module level and the probe key is always removed. `savePendingTx`'s silent catch remains as a backstop; the UI is driven by the probe, not by save failures.
 - `GameArena.tsx` computes the probe once per arena mount and, when storage is unavailable, renders an amber warning at the top of the arena (after the phase indicator, before the Syndicate bar), visible before any submission: "Browser storage is unavailable, so transaction recovery after a refresh is OFF in this browser. Do not refresh while a transaction is confirming."
-- Deliberate decision, stated to Nino: submissions are NOT hard-locked when storage is unavailable. The in-session gates (6.1/6.2) already lock the affected actions while a transaction's status is unsafe, and a refresh itself cannot be locked by any UI; the defect being fixed was the silent implication of protection. A hard pre-submit lock remains available as a follow-up on Nino's word.
-- Verification after the addendum: `npx tsc --noEmit` exit 0, `npm run build` exit 0, `npx hardhat test` 13 passing / 0 failing (fresh runs), locked-file MD5s unchanged. The warning's appearance in a genuinely storage-blocked browser (e.g. private mode) is manually verifiable only and joins Nino's live QA list.
+- Deliberate decision: submissions are NOT hard-locked when storage is unavailable. The in-session gates (6.1/6.2) already lock the affected actions while a transaction's status is unsafe, and a refresh itself cannot be locked by any UI; the defect being fixed was the silent implication of protection. A hard pre-submit lock remains available as a follow-up if wanted.
+- Verification after the addendum: `npx tsc --noEmit` exit 0, `npm run build` exit 0, `npx hardhat test` 13 passing / 0 failing (fresh runs), locked-file MD5s unchanged. The warning's appearance in a genuinely storage-blocked browser (e.g. private mode) is manually verifiable only and joins the live QA list.

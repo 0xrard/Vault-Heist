@@ -456,7 +456,7 @@ export default function App() {
         const cid = await currentChainId();
         setChainId(cid);
         if (cid !== SEPOLIA_CHAIN_ID) return; // wrong network — stay in the lobby, hint kept
-        // Addendum 5 (semantics settled with Nino, 23 Nov): the silent
+        // Addendum 5 (semantics settled during live testing, 23 Nov): the silent
         // reconnect above applies to EVERY visit — a fresh tab still
         // lands with the wallet connected. What a fresh tab does not
         // get is the automatic arena restore: closing the tab is
@@ -575,7 +575,7 @@ export default function App() {
         </main>
       )}
 
-      {/* Batch 6.3.15 (Nino's call): mt-auto inside the flex-column root
+      {/* Batch 6.3.15: mt-auto inside the flex-column root
           pins this disclaimer to the bottom of the viewport — on short
           pages (e.g. the lobby with Your Matches collapsed) it must stay
           at the bottom, not ride up directly under the content. */}

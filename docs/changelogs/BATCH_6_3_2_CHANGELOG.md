@@ -1,6 +1,6 @@
 # Batch 6.3.2 — Invalid-Record Fail-Closed
 
-Scope: frontend only. No contract changes, no ABI changes, no gameplay changes. This is the final hardening Nino recommended in his Batch 6.3.1 review (accepted batch; this item was P1, recommended, not a blocker). It distinguishes a persisted record that EXISTS but cannot be trusted from one that is genuinely absent, and aligns the standing storage warning copy with the fail-closed behavior. The Batch 6.2 hash gate and the 6.3.1 fail-closed hydration design are unchanged.
+Scope: frontend only. No contract changes, no ABI changes, no gameplay changes. This is the final hardening recommended in the Batch 6.3.1 review (accepted batch; this item was P1, recommended, not a blocker). It distinguishes a persisted record that EXISTS but cannot be trusted from one that is genuinely absent, and aligns the standing storage warning copy with the fail-closed behavior. The Batch 6.2 hash gate and the 6.3.1 fail-closed hydration design are unchanged.
 
 ## Why
 
@@ -47,12 +47,12 @@ No other files were modified.
 
 ## Regression risks (honest assessment)
 
-- **Permanently locked kind within a match/round context:** a genuinely corrupt entry (e.g. storage corruption, a hand-edited value, or a future format change writing an incompatible shape under the same key) now keeps that kind at `unknown` for that (chain, contract, match, round, wallet) context until the entry becomes valid again or the context changes. This is the intended fail-closed trade-off Nino specified; it is bounded to one round of one match for one wallet, and the recovery note tells the player why. There is still no code path that deletes an invalid entry, by design (the loader's hands-off rule from 6.3 is preserved).
+- **Permanently locked kind within a match/round context:** a genuinely corrupt entry (e.g. storage corruption, a hand-edited value, or a future format change writing an incompatible shape under the same key) now keeps that kind at `unknown` for that (chain, contract, match, round, wallet) context until the entry becomes valid again or the context changes. This is the intended fail-closed trade-off, specified by design; it is bounded to one round of one match for one wallet, and the recovery note tells the player why. There is still no code path that deletes an invalid entry, by design (the loader's hands-off rule from 6.3 is preserved).
 - **Retry cost:** an invalid entry makes every retry re-run hydration and re-read storage before failing closed again. This is one localStorage read per kind per check, negligible, and it is what allows recovery if the entry is repaired or replaced by a fresh valid save.
 - **Warning overlap:** in a browser where storage reads throw, the standing warning (revised copy) shows; the invalid-record note cannot trigger in that same browser because reads never reach the parse/validation stage (they return `error`). The two notes are therefore effectively mutually exclusive in practice, and both may never show together except in mixed failure modes (probe passes, later reads succeed but entry is corrupt → only the invalid note; probe result is cached from mount).
 - **No behavior change on the happy paths:** `absent`, `found`, and `error` handling, the hash gate, the state machines, the conservative budget, and all Batch 1–6.3.1 features are untouched. The wrapper `loadPendingTx` returns identical results for every input as before this batch (invalid previously surfaced as null via `absent`; it still surfaces as null).
 
-## Acceptance criteria (Nino's Batch 6.3.2 list) — by construction
+## Acceptance criteria (the Batch 6.3.2 list) — by construction
 
 | # | Scenario | Result | Deciding path |
 | --- | --- | --- | --- |
@@ -63,7 +63,7 @@ No other files were modified.
 | 5 | `getItem` throws | `error`; 6.3.1 fail-closed unchanged | The `getItem` try/catch is untouched and still returns `{ status: "error" }` → hydration reason `storage-unavailable` → same fail-closed branch |
 | 6 | Standing warning copy vs behavior | Copy matches fail-closed behavior | Standing warning now reads "...Transaction status cannot be verified safely, so actions that need verification stay locked, and refreshing while a transaction is confirming is unsafe." (GameArena render, verified by grep; the old "recovery after a refresh is OFF / Do not refresh" copy is gone) |
 
-No live simulation (corrupt-entry injection, storage-blocked browser, pending transaction + refresh) was run for this table; each row is satisfied by the code path named, and the live versions remain Nino's final QA list.
+No live simulation (corrupt-entry injection, storage-blocked browser, pending transaction + refresh) was run for this table; each row is satisfied by the code path named, and the live versions remain on the final QA list.
 
 ## Verification (executed fresh on the final tree)
 

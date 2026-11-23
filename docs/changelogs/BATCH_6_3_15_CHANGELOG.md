@@ -2,7 +2,7 @@
 
 **Date:** 23 November 2026
 **Type:** Two class changes in `frontend/src/App.tsx`. Layout only — no logic, no content, no other component touched. Post-freeze batch under the freeze rule, re-frozen on completion.
-**Trigger:** After deploying 6.3.14, Nino screenshotted the lobby: with Your Matches collapsed the page is short, and the "not audited / endorsed by Zama" disclaimer floated up directly under the card, leaving a void beneath it. His ruling: the disclaimer stays at the bottom; it must not ride up.
+**Trigger:** After deploying 6.3.14, the lobby showed the problem: with Your Matches collapsed the page is short, and the "not audited / endorsed by Zama" disclaimer floated up directly under the card, leaving a void beneath it. The ruling: the disclaimer stays at the bottom; it must not ride up.
 
 ## Change
 
@@ -13,4 +13,4 @@
 
 - `npx tsc --noEmit` — exit 0. `npm run build` — exit 0. `npx hardhat test` — 13 passing, 0 failing (contracts untouched; run for the freeze record).
 - Locked-file MD5s unchanged.
-- Live check after Nino's deploy: on the lobby with Your Matches collapsed, the disclaimer sits at the very bottom edge of the screen; in the arena it sits after the content as before.
+- Live check after deploy: on the lobby with Your Matches collapsed, the disclaimer sits at the very bottom edge of the screen; in the arena it sits after the content as before.

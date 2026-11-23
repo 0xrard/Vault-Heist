@@ -2,7 +2,7 @@
 
 **Date:** 23 November 2026
 **Type:** Documentation corrections and one example-config fix. No code logic changes anywhere. Post-freeze batch under the freeze rule (new batch number + changelog + re-verification), re-frozen on completion.
-**Trigger:** Nino asked for a full README audit: is it accurate to the game and the files, and are its instructions correct and complete? The audit verified every checkable claim against the contract source, the file tree, the live UI labels, and the Match #1 proof transaction onchain. The technical core (rules, RNG ranges, ACL tables, all source line citations, deploy/test instructions, the Match #1 evidence) verified exact. Six items did not:
+**Trigger:** A full README audit pass: is it accurate to the game and the files, and are its instructions correct and complete? The audit verified every checkable claim against the contract source, the file tree, the live UI labels, and the Match #1 proof transaction onchain. The technical core (rules, RNG ranges, ACL tables, all source line citations, deploy/test instructions, the Match #1 evidence) verified exact. Six items did not:
 
 ## Fixes applied
 
@@ -15,7 +15,7 @@
 
 ## Explicitly not changed
 
-- The phrases "Mainnet Season 5" (header) and "Confidential Gaming track" (Project Scope): whether these match the organizer's exact category naming cannot be settled from the repo; Nino will align them with the submission form's wording when he files it.
+- The phrases "Mainnet Season 5" (header) and "Confidential Gaming track" (Project Scope): whether these match the organizer's exact category naming cannot be settled from the repo; They will be aligned with the submission form's wording at filing time.
 - Everything the audit verified as exact — no verified text was touched.
 
 ## Verification

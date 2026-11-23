@@ -1,6 +1,6 @@
 # Batch 6.3.1 — Hydration Fail-Closed Patch
 
-Scope: frontend only. No contract changes, no ABI changes, no gameplay changes, no new features. This patch closes the two fail-open paths found in Nino's Batch 6.3 audit: a failed hydration was indistinguishable from a successful one, and an actual per-record save failure was invisible. The Batch 6.2 hash gate logic is unchanged.
+Scope: frontend only. No contract changes, no ABI changes, no gameplay changes, no new features. This patch closes the two fail-open paths found in the Batch 6.3 audit: a failed hydration was indistinguishable from a successful one, and an actual per-record save failure was invisible. The Batch 6.2 hash gate logic is unchanged.
 
 ## Why
 
@@ -51,7 +51,7 @@ No other files were modified.
 - **Corrupt-entry classification:** an unparseable or identity-mismatched entry is treated as "absent" (hydration ok) rather than "error". Rationale: the storage read itself succeeded; a tampered or foreign entry is not evidence of a pending transaction for this context, and treating it as a storage failure would lock the arena over data that can never resolve. The entry is still never deleted by this arena.
 - **Warning granularity:** the persistence warning is tracked per kind but rendered for the record the panel currently displays; if both kinds were unconfirmed and only the non-displayed kind failed to save, its note appears when that record becomes the displayed one. Both records' gates behave identically regardless of the note.
 
-## Acceptance criteria (Nino's Batch 6.3.1 list) — by construction
+## Acceptance criteria (the Batch 6.3.1 list) — by construction
 
 | # | Scenario | Result | Deciding path |
 | --- | --- | --- | --- |
@@ -64,7 +64,7 @@ No other files were modified.
 | 7 | Different match/round | Unaffected (unchanged) | Same keying/validation; App remounts the arena per `${matchId}-${round}` |
 | 8 | Receipt success/failure | Record still resolves and clears correctly (unchanged) | Gate outcomes unchanged from 6.2; clears flow through `clearUnconfirmedTx`, which now also clears the persistence warning flag |
 
-No live hydration-failure, pending-transaction, or RPC-failure simulation was run for this table; each row is satisfied by the code path named. The live versions (including a forced hydration failure and a forced save failure) remain Nino's manual QA.
+No live hydration-failure, pending-transaction, or RPC-failure simulation was run for this table; each row is satisfied by the code path named. The live versions (including a forced hydration failure and a forced save failure) remain manual QA items.
 
 ## Verification (executed fresh on the final tree)
 

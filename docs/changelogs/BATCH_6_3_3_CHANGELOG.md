@@ -1,6 +1,6 @@
 # Batch 6.3.3 — Empty-String Record Correction (Final Hardening Patch)
 
-A one-line correction from Nino's Batch 6.3.2 audit. No changes to
+A one-line correction from the Batch 6.3.2 audit. No changes to
 architecture, state machine, gameplay, contracts, or ABI. This is the final patch in
 the 6.x recovery hardening series; after this, the boundary for technical changes
 is set and the work moves to final campaign QA.
@@ -55,7 +55,7 @@ interference — exactly the case that must fail closed.
 | 5 | Key exists, valid record | `found` (unchanged) | The 6.3.2 validation path |
 
 Live simulation (pending transaction + refresh, injected corrupt record,
-storage failure) remains on Nino's manual QA list and is not claimed
+storage failure) remains on the manual QA list and is not claimed
 verified here.
 
 ## Verification (run in this patch session)

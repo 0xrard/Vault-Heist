@@ -1,9 +1,9 @@
 # FREEZE — Final Build Record
 
-**Frozen:** 23 November 2026 (Asia/Jakarta), by Nino's decision.
-**Frozen build:** Batch 6.3.15. Batch 6.3.8 including Addenda 1–6, plus the 6.3.9 match-list hygiene filter, the 6.3.10 dead-file cleanup, the 6.3.11 README accuracy pass, the 6.3.12 README heading correction, the 6.3.13 LICENSE file, the 6.3.14 collapsible Your Matches section, and the 6.3.15 bottom-pinned disclaimer. Contracts unchanged since deployment.
+**Frozen:** 23 November 2026 (Asia/Jakarta); re-issued 24 November 2026 for Batch 6.3.16.
+**Frozen build:** Batch 6.3.16. Batch 6.3.8 including Addenda 1–6, plus the 6.3.9 match-list hygiene filter, the 6.3.10 dead-file cleanup, the 6.3.11 README accuracy pass, the 6.3.12 README heading correction, the 6.3.13 LICENSE file, the 6.3.14 collapsible Your Matches section, the 6.3.15 bottom-pinned disclaimer, and the 6.3.16 writing-voice pass. Contracts unchanged since deployment.
 **Status:** Live QA complete (23 Nov 2026), including the full 14-item Batch 6.3.8 live test list. This is the final code state for the Zama Developer Program Season 5 submission. No further code changes are planned; any post-freeze change requires a new batch number, a changelog, and a re-test of the affected paths before it may replace this build.
-**Supersedes:** The Batch 6.3.14 freeze issued earlier the same day, and through it the 6.3.13, 6.3.12, 6.3.11, 6.3.10, 6.3.9, 6.3.8 (15:39 WIB), and 6.3.7 (14:01 WIB) freezes. The 6.3.9, 6.3.14, and 6.3.15 changes are display-layer only; 6.3.10 deletes provably dead files only; 6.3.11 corrects documentation and pre-fills the frontend `.env.example`; 6.3.12 changes one README heading; 6.3.13 adds the LICENSE file — all made at Nino's direction under the freeze rule (new batch number + changelog + re-verification; the suite still passes 13/13).
+**Supersedes:** The Batch 6.3.15 freeze issued on 23 November 2026, and through it the 6.3.14, 6.3.13, 6.3.12, 6.3.11, 6.3.10, 6.3.9, 6.3.8 (15:39 WIB), and 6.3.7 (14:01 WIB) freezes. The 6.3.9, 6.3.14, and 6.3.15 changes are display-layer only; 6.3.10 deletes provably dead files only; 6.3.11 corrects documentation and pre-fills the frontend `.env.example`; 6.3.12 changes one README heading; 6.3.13 adds the LICENSE file; 6.3.16 rewrites attribution phrasing across the docs and code comments — all made under the freeze rule (new batch number + changelog + re-verification; the suite still passes 13/13).
 
 ## Contract identity (unchanged, verified on Etherscan)
 
@@ -34,6 +34,7 @@
 - Batch 6.3.13: added the standard MIT `LICENSE` file (copyright 0xrard) — the README declared MIT but the repository carried no license file, a gap found by the full re-scan of 23 November.
 - Batch 6.3.14: the lobby's Your Matches history is now collapsible with the same toggle pattern as PvP Mode (closed by default, match count shown in the header; Refresh and the streak badge stay visible). List logic unchanged.
 - Batch 6.3.15: the Zama disclaimer footer is pinned to the bottom of the viewport (flex-column root + `mt-auto`), so on short pages it no longer rides up under the content.
+- Batch 6.3.16: writing-voice pass — 55 attribution phrases across FREEZE.md, all batch changelogs, and four code comments rewritten into the project's own developer voice. No logic, facts, or decisions changed; first-name attribution no longer appears anywhere in the tree.
 
 ## Verification at freeze time
 

@@ -1,10 +1,10 @@
 # Batch 6.3.5 — VaultScouted Filter Form Correction (Live QA Blocker Fix)
 
-A one-line patch from the continuation of Nino's live QA (23 Nov 2026): after
+A one-line patch from the continuation of the live QA (23 Nov 2026): after
 Batch 6.3.4 was deployed and verified serving the new build, the Scout status
 stayed `unknown` on every card, even though the chain was proven healthy — RPC
 requests returned status 200, the anchor scan and commit scan completed conclusively from
-the development machine, and match #12's anchor cache in Nino's browser held
+the development machine, and match #12's anchor cache in the test browser held
 the correct block (12.193.734).
 
 ## Root cause (reproduced exactly, 23 Nov 2026)

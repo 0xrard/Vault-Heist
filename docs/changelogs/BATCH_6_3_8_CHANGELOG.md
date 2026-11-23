@@ -2,7 +2,7 @@
 
 **Date:** 23 November 2026
 **Type:** Frontend-only UX fix (one new lib file, one component touched). No contract changes, no GameArena changes.
-**Trigger:** During the live QA session (23 Nov), Nino hit the same friction repeatedly: after connecting the wallet and entering a match, any page refresh dropped him back to the home/lobby screen and demanded a manual Connect click — even though the wallet still remembered the site's authorization. Root cause, verified from the code: `App.tsx` held `screen` / `matchId` / `signer` / `address` purely in React state, nothing persisted the active match, and the only `eth_requestAccounts` call lived behind the Connect button — the app never asked the wallet silently (`eth_accounts`) on load.
+**Trigger:** During the live QA session (23 Nov), the same friction kept recurring: after connecting the wallet and entering a match, any page refresh dropped the player back to the home/lobby screen and demanded a manual Connect click — even though the wallet still remembered the site's authorization. Root cause, verified from the code: `App.tsx` held `screen` / `matchId` / `signer` / `address` purely in React state, nothing persisted the active match, and the only `eth_requestAccounts` call lived behind the Connect button — the app never asked the wallet silently (`eth_accounts`) on load.
 
 ## Design
 
@@ -68,11 +68,11 @@ Guarded by a `useRef` flag so it runs at most once per page load:
 
 ## Status
 
-Implemented and statically verified in the local tree. **Not zipped, not deployed.** This batch changes load-time behavior, so per the freeze rule it supersedes the Batch 6.3.7 freeze (`FREEZE.md`, left untouched by this batch) **only after Nino's live tests pass** — the agreed test list: silent reconnect with an authorized wallet (no click, no popup); no-popup behavior with no authorized account; account-switch followed by refresh follows the new account; refresh mid-Solo restores the same arena; refresh mid-PvP as player 2 restores as player 2; refresh during a pending commit and after Scout use keep the Batch 6 recovery paths intact (regression); refresh on a finished match and with a foreign wallet's hint stay in the lobby; one full Solo to Finished; leave-then-refresh does not bounce back. After those pass, the freeze record is re-issued on top of 6.3.8.
+Implemented and statically verified in the local tree. **Not zipped, not deployed.** This batch changes load-time behavior, so per the freeze rule it supersedes the Batch 6.3.7 freeze (`FREEZE.md`, left untouched by this batch) **only after the live tests pass** — the agreed test list: silent reconnect with an authorized wallet (no click, no popup); no-popup behavior with no authorized account; account-switch followed by refresh follows the new account; refresh mid-Solo restores the same arena; refresh mid-PvP as player 2 restores as player 2; refresh during a pending commit and after Scout use keep the Batch 6 recovery paths intact (regression); refresh on a finished match and with a foreign wallet's hint stay in the lobby; one full Solo to Finished; leave-then-refresh does not bounce back. After those pass, the freeze record is re-issued on top of 6.3.8.
 
-## Addendum — Disconnect (added before live testing, Nino's request)
+## Addendum — Disconnect (added before live testing)
 
-While reviewing the connected-wallet pill during 6.3.8 testing prep, Nino noted the app had no log out at all: the pill was a plain status display, and the only way to disconnect was from inside the wallet extension. A **Disconnect** action is now part of this batch (added before the batch shipped, so it is covered by the same live test pass).
+While reviewing the connected-wallet pill during 6.3.8 testing prep, it was noted the app had no log out at all: the pill was a plain status display, and the only way to disconnect was from inside the wallet extension. A **Disconnect** action is now part of this batch (added before the batch shipped, so it is covered by the same live test pass).
 
 **What was added:**
 
@@ -113,18 +113,18 @@ While reviewing the connected-wallet pill during 6.3.8 testing prep, Nino noted 
 **Fix (`App.tsx` only):** A `bootRestoring` state, initialized synchronously on first render: true only when a session hint exists and the Disconnect marker is not set (both localStorage helpers never throw, so the initializer is safe). While true, the first paint is a minimal "Reconnecting to your match…" splash instead of the lobby. The restore effect clears it in a `finally`, and an 8-second hard cap guarantees the splash can never trap the player if the wallet or RPC stalls (the restore may still complete afterwards and enter the arena then). Visits without a hint, and visits after an explicit Disconnect, render the lobby immediately, exactly as before.
 
 
-## Addendum 5 — Refresh restores; a closed tab does not (design call by Nino)
+## Addendum 5 — Refresh restores; a closed tab does not (design call)
 
-**Design call (23 Nov, live testing):** Test 10's first half exposed a semantics question: after closing the tab, reopening with the same wallet dropped the player straight back into the arena. Nino's call: closing the tab is leaving. A refresh inside the same tab is an accident to recover from (automatic restore); a new tab is a new visit that must start in the lobby, with re-entry a deliberate Resume click — especially since PvP matches have no timeout and can be days old.
+**Design call (23 Nov, live testing):** Test 10's first half exposed a semantics question: after closing the tab, reopening with the same wallet dropped the player straight back into the arena. The call: closing the tab is leaving. A refresh inside the same tab is an accident to recover from (automatic restore); a new tab is a new visit that must start in the lobby, with re-entry a deliberate Resume click — especially since PvP matches have no timeout and can be days old.
 
 **Change:** New `claimTabSession()` in `lib/sessionStorage.ts`, built on `sessionStorage` (survives a same-tab refresh, dies with the tab; result memoized per page load). The restore effect now discards the hint and stays in the lobby when the load is a fresh tab, and the boot splash only arms for same-tab loads. Everything else is unchanged: silent reconnect still applies in the lobby (the wallet pill connects without a click), the address gate still guards the refresh path, and the Disconnect marker still wins over everything.
 
 **Revised test expectations:** Test 10 first half now expects lobby (not arena) after tab close + reopen with the same wallet; foreign wallet still expects lobby. Test 6 (wallet-2 refresh restore) is unaffected — it is a same-tab refresh.
 
 
-**Addendum 5 clarification (same day, Nino's wording):** "still auto-connect, but stay in the lobby." The silent wallet reconnect is independent of arena restore and applies to every visit (unless the Disconnect marker is set): a fresh tab lands in the lobby **with the wallet already connected**; only the automatic arena entry is reserved for same-tab refreshes. The tab-session gate therefore sits after the reconnect and chain check inside the restore effect, immediately before the hint is loaded.
+**Addendum 5 clarification (same day):** "still auto-connect, but stay in the lobby." The silent wallet reconnect is independent of arena restore and applies to every visit (unless the Disconnect marker is set): a fresh tab lands in the lobby **with the wallet already connected**; only the automatic arena entry is reserved for same-tab refreshes. The tab-session gate therefore sits after the reconnect and chain check inside the restore effect, immediately before the hint is loaded.
 
 
-## Addendum 6 — Privacy button label cleaned (Nino's call, during freeze)
+## Addendum 6 — Privacy button label cleaned (during freeze)
 
-The navbar privacy button rendered a HelpCircle icon plus a literal "? " before its label — a doubled question mark. Per Nino's decision, both are removed; the button now reads simply **How Privacy Works**. The unused `HelpCircle` import was removed with it, and the matching comment in `PrivacyExplainerModal.tsx` was updated. No behavior change; the button still opens the same modal. This was the last change before the 6.3.8 freeze.
+The navbar privacy button rendered a HelpCircle icon plus a literal "? " before its label — a doubled question mark. Both are removed; the button now reads simply **How Privacy Works**. The unused `HelpCircle` import was removed with it, and the matching comment in `PrivacyExplainerModal.tsx` was updated. No behavior change; the button still opens the same modal. This was the last change before the 6.3.8 freeze.

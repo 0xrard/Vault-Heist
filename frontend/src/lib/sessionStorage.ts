@@ -135,3 +135,37 @@ export function clearDisconnectedMarker(): void {
     /* storage unavailable — nothing to clear, ignore */
   }
 }
+
+// ---------------------------------------------------------------------------
+// Tab-session marker (Batch 6.3.8, Addendum 5)
+//
+// A refresh and "closed the tab and came back later" are both plain
+// page loads; the only browser primitive that separates them is
+// sessionStorage, which survives a refresh inside the same tab but is
+// discarded when the tab closes. Design call (Nino, 23 Nov): a refresh
+// is an accident to recover from (restore the arena automatically),
+// while closing the tab is leaving — the next visit starts in the
+// lobby and re-entry is a deliberate Resume click. The first load in
+// a tab therefore claims the tab session: it reports whether the
+// marker already existed (same tab, e.g. a refresh) and sets it for
+// the next load. The result is memoized at module level so repeated
+// calls within one page load always agree, even if a caller runs
+// twice. If sessionStorage itself is unavailable, every load reads
+// as a fresh tab: restore simply never fires, and the lobby plus
+// manual Resume remain — the safe direction.
+// ---------------------------------------------------------------------------
+
+const TAB_SESSION_KEY = "vaultheist:tab-session";
+let tabSessionClaim: boolean | null = null;
+
+export function claimTabSession(): boolean {
+  if (tabSessionClaim !== null) return tabSessionClaim;
+  try {
+    const seen = window.sessionStorage.getItem(TAB_SESSION_KEY);
+    window.sessionStorage.setItem(TAB_SESSION_KEY, "1");
+    tabSessionClaim = seen !== null;
+  } catch {
+    tabSessionClaim = false;
+  }
+  return tabSessionClaim;
+}

@@ -25,6 +25,7 @@ import {
 } from "./lib/contracts";
 import { recordMatchResult } from "./lib/streakStorage";
 import {
+  claimTabSession,
   clearDisconnectedMarker,
   clearSessionHint,
   isDisconnectedMarkerSet,
@@ -49,6 +50,9 @@ export default function App() {
   // lobby immediately, exactly as before.
   const [bootRestoring, setBootRestoring] = useState<boolean>(() => {
     if (isDisconnectedMarkerSet()) return false;
+    // Addendum 5: only a same-tab load (a refresh) may restore; a
+    // fresh tab is a fresh visit and starts in the lobby.
+    if (!claimTabSession()) return false;
     return loadSessionHint() !== null;
   });
   const [busy, setBusy] = useState<string | null>(null);
@@ -440,6 +444,15 @@ export default function App() {
         // reconnect. If the opt-out marker is set, stay disconnected
         // and keep the marker (only a manual Connect clears it).
         if (isDisconnectedMarkerSet()) return;
+        // Addendum 5: a fresh tab is a fresh visit. Discard the stale
+        // hint and start in the lobby; re-entry is a deliberate Resume
+        // click, never an automatic drop into a possibly days-old
+        // match. (A refresh in the same tab keeps the tab session and
+        // restores exactly as before.)
+        if (!claimTabSession()) {
+          clearSessionHint();
+          return;
+        }
         const eth = (window as any).ethereum;
         if (!eth) return;
         const accounts: string[] = await eth.request({ method: "eth_accounts" });

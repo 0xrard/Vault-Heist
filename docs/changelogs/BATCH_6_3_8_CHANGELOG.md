@@ -111,3 +111,12 @@ While reviewing the connected-wallet pill during 6.3.8 testing prep, Nino noted 
 **Finding (23 Nov, live, video evidence):** On the fixed build, test 5's restore worked — refresh during Solo match #19 returned to the same arena — but the lobby painted in full for about a second first (the app's initial screen is the lobby; the asynchronous restore lands only after the wallet check and one chain read). Functionally a pass, visually a glitch.
 
 **Fix (`App.tsx` only):** A `bootRestoring` state, initialized synchronously on first render: true only when a session hint exists and the Disconnect marker is not set (both localStorage helpers never throw, so the initializer is safe). While true, the first paint is a minimal "Reconnecting to your match…" splash instead of the lobby. The restore effect clears it in a `finally`, and an 8-second hard cap guarantees the splash can never trap the player if the wallet or RPC stalls (the restore may still complete afterwards and enter the arena then). Visits without a hint, and visits after an explicit Disconnect, render the lobby immediately, exactly as before.
+
+
+## Addendum 5 — Refresh restores; a closed tab does not (design call by Nino)
+
+**Design call (23 Nov, live testing):** Test 10's first half exposed a semantics question: after closing the tab, reopening with the same wallet dropped the player straight back into the arena. Nino's call: closing the tab is leaving. A refresh inside the same tab is an accident to recover from (automatic restore); a new tab is a new visit that must start in the lobby, with re-entry a deliberate Resume click — especially since PvP matches have no timeout and can be days old.
+
+**Change:** New `claimTabSession()` in `lib/sessionStorage.ts`, built on `sessionStorage` (survives a same-tab refresh, dies with the tab; result memoized per page load). The restore effect now discards the hint and stays in the lobby when the load is a fresh tab, and the boot splash only arms for same-tab loads. Everything else is unchanged: silent reconnect still applies in the lobby (the wallet pill connects without a click), the address gate still guards the refresh path, and the Disconnect marker still wins over everything.
+
+**Revised test expectations:** Test 10 first half now expects lobby (not arena) after tab close + reopen with the same wallet; foreign wallet still expects lobby. Test 6 (wallet-2 refresh restore) is unaffected — it is a same-tab refresh.

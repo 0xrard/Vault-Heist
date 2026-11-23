@@ -53,6 +53,11 @@ export default function Lobby({
   const [resumeId, setResumeId] = useState("");
   const [copied, setCopied] = useState(false);
   const [showPvp, setShowPvp] = useState(false);
+  // Batch 6.3.14 (Nino's request): the Your Matches history is
+  // collapsible with the same toggle pattern as PvP Mode above —
+  // closed by default so the lobby stays focused on starting a game.
+  // Display only; the list logic (6.3.9 filter, pagination) is untouched.
+  const [showMatches, setShowMatches] = useState(false);
   const [myMatches, setMyMatches] = useState<UserMatch[] | null>(null);
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [matchPage, setMatchPage] = useState(0);
@@ -231,9 +236,17 @@ export default function Lobby({
 
         {address && (
           <div className="mt-5 border-t border-slate-800 pt-5">
-            <div className="mb-2 flex items-center gap-2">
-              <History className="size-4 text-cyan-400" />
-              <span className="text-sm font-semibold text-slate-300">Your Matches</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowMatches((v) => !v)}
+                className="flex items-center gap-2 text-sm font-semibold text-slate-200 transition hover:text-cyan-300"
+              >
+                <History className="size-4 text-cyan-400" /> Your Matches
+                {myMatches !== null && (
+                  <span className="font-mono text-xs font-normal text-slate-400">({myMatches.length})</span>
+                )}
+                {showMatches ? "▲" : "▼"}
+              </button>
               {winStreak >= 2 && (
                 <span className="flex items-center gap-1 rounded-full bg-orange-400/10 px-2.5 py-0.5 font-mono text-[11px] font-semibold text-orange-300">
                   <Flame className="size-3" /> {winStreak}x Heist Streak
@@ -247,7 +260,9 @@ export default function Lobby({
                 <RefreshCw className={`size-3.5 ${loadingMatches ? "animate-spin" : ""}`} /> Refresh
               </button>
             </div>
-            <p className="mb-3 text-xs text-slate-500">
+            {showMatches && (
+            <>
+            <p className="mb-3 mt-3 text-xs text-slate-500">
               Finished matches stay listed permanently. Unfinished matches are hidden
               automatically after 30 minutes — they still exist onchain and can be opened
               anytime via Resume Match by ID.
@@ -319,6 +334,8 @@ export default function Lobby({
               </>
             ) : (
               <p className="text-sm text-slate-500">No matches yet for this wallet.</p>
+            )}
+            </>
             )}
           </div>
         )}

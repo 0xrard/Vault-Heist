@@ -16,22 +16,22 @@ interface Props {
   maxBid: number;
   lootHandle: string | null;
   alarmHandle: string | null;
-  scouted: ScoutedStat | null; // stat yang sudah di-scout di brankas ini (jika ada)
-  scoutUsed: boolean; // scout sudah dipakai di ronde ini (di brankas mana pun)
-  scoutGate?: "syncing" | "ready" | "unknown"; // Batch 6: gerbang verifikasi Scout. "syncing" = pemeriksaan berjalan, "unknown" = verifikasi gagal/tidak konklusif (Scout ditahan + retry), "ready" = status terverifikasi
-  onRetryScoutSync?: () => void; // Batch 6: jalankan ulang verifikasi Scout onchain dari status "unknown"
+  scouted: ScoutedStat | null; // the stat already scouted in this vault (if any)
+  scoutUsed: boolean; // scout already used this round (in any vault)
+  scoutGate?: "syncing" | "ready" | "unknown"; // Batch 6: the Scout verification gate. "syncing" = check in progress, "unknown" = verification failed/inconclusive (Scout held + retry), "ready" = status verified
+  onRetryScoutSync?: () => void; // Batch 6: re-run the onchain Scout verification from the "unknown" status
   busy: boolean;
-  locked: boolean; // sudah commit / ronde selesai
-  outcome?: "safe" | "alarm" | null; // hasil ronde ini bila sudah diketahui (pintu terbuka)
-  scoutAnimate?: boolean; // true hanya untuk reveal Scout segar, bukan hasil restore cache/F5
+  locked: boolean; // already committed / round finished
+  outcome?: "safe" | "alarm" | null; // this round's outcome if known (door open)
+  scoutAnimate?: boolean; // true only for a fresh Scout reveal, not a cache/F5 restore result
   onBidChange: (idx: number, value: number) => void;
   onScout: (idx: number, kind: "loot" | "alarm") => void;
 }
 
-// Cipher scramble (Batch 2 #3): murni animasi tampilan selama 0,8 detik,
-// lalu terkunci ke nilai asli. Hanya berjalan bila `animate` true (reveal
-// Scout segar); nilai dari cache/restore (mis. setelah F5) langsung tampil.
-// Batch 5: prefers-reduced-motion mematikan scramble, nilai final langsung.
+// Cipher scramble (Batch 2 #3): purely a display animation for 0,8 seconds,
+// then locks onto the real value. Only runs when `animate` is true (a fresh
+// Scout reveal); values from cache/restore (e.g. after F5) display immediately.
+// Batch 5: prefers-reduced-motion disables the scramble, the final value shows immediately.
 function ScrambleValue({ value, animate }: { value: number; animate: boolean }) {
   const reduced = usePrefersReducedMotion();
   const effectiveAnimate = animate && !reduced;
@@ -100,14 +100,14 @@ function StatRow({
       </div>
     );
   }
-  // Batch 5 #1: nilai terenkripsi tampil sebagai stempel keamanan
-  // CLASSIFIED / SEALED, bukan potongan hex mentah ala dashboard developer.
-  // Handle hex lengkap tetap bisa diperiksa juri teknis lewat tooltip
-  // (atribut title pada stempel).
+  // Batch 5 #1: encrypted values display as a security stamp
+  // CLASSIFIED / SEALED, not a raw hex fragment like a developer dashboard.
+  // The full hex handle can still be inspected by technical judges via the tooltip
+  // (the title attribute on the stamp).
   return (
     <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2">
       <span className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
-        {icon} {label} <span className="font-mono text-[10px] text-slate-600">{range}</span>
+        {icon} {label} <span className="font-mono text-sm font-semibold text-slate-300">{range}</span>
       </span>
       <span
         title={handle ?? undefined}
@@ -140,7 +140,7 @@ export default function VaultCard({
   const lootRevealed = scouted?.kind === "loot" ? scouted.value : null;
   const alarmRevealed = scouted?.kind === "alarm" ? scouted.value : null;
 
-  // Animasi pop hanya untuk ikon agen yang BARU ditambahkan (Batch 2 #2).
+  // Pop animation only for NEWLY added agent icons (Batch 2 #2).
   const prevBid = useRef(bid);
   const [popNonce, setPopNonce] = useState(0);
   useEffect(() => {
@@ -157,7 +157,7 @@ export default function VaultCard({
         </span>
       </div>
 
-      {/* Pintu brankas: tersegel selama alokasi; terbuka bila hasil ronde diketahui */}
+      {/* Vault door: sealed during allocation; opens when the round outcome is known */}
       <div
         className={`flex justify-center rounded-xl py-1 ${
           outcome === "alarm" ? "alarm-pulse" : outcome === "safe" ? "decrypted-glow" : ""
@@ -221,7 +221,7 @@ export default function VaultCard({
           <span className="text-xs font-medium tracking-wide text-slate-400">AGENTS ASSIGNED</span>
           <span className="font-mono text-2xl font-bold text-slate-50">{bid}</span>
         </div>
-        {/* Ikon agen kru yang sudah masuk ke brankas ini (Batch 2 #2) */}
+        {/* Crew agent icons that have entered this vault (Batch 2 #2) */}
         <div className="mb-2 flex min-h-5 flex-wrap items-center gap-1" aria-hidden>
           {bid === 0 ? (
             <span className="text-[11px] text-slate-600">No agents assigned</span>
@@ -259,7 +259,7 @@ export default function VaultCard({
             disabled={busy || locked}
             onChange={(e) => {
               const v = Number(e.target.value);
-              // Batch 5: tick sangat lembut hanya saat nilai integer berubah.
+              // Batch 5: a very soft tick only when the integer value changes.
               if (v !== bid) playSliderTick();
               onBidChange(idx, v);
             }}

@@ -1,10 +1,10 @@
 import { Bot } from "lucide-react";
 
-// Bar dialog 1 baris milik Syndicate AI (lawan di mode Solo).
-// Kompak dan non-blocking: elemen layout biasa di atas arena, tidak pernah
-// menutupi kontrol dan tidak menangkap klik secara khusus. Isi baris selalu
-// berasal dari event game asli (match mulai, Scout, lock-in, hasil akhir)
-// yang diatur dari GameArena — bukan teks acak/timer.
+// One-line dialogue bar for the Syndicate AI (the opponent in Solo mode).
+// Compact and non-blocking: a plain layout element above the arena, never
+// covering controls and never specially intercepting clicks. The line's content always
+// comes from real game events (match start, Scout, lock-in, final result)
+// driven from GameArena — not random text/timers.
 export default function SyndicateBar({ line }: { line: string }) {
   return (
     <div className="mb-4 flex items-center gap-3 rounded-xl border border-violet-400/25 bg-violet-400/10 px-4 py-2.5">

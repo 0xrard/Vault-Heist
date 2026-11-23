@@ -4,7 +4,7 @@ import type { RoundRecord } from "../lib/contracts";
 import VaultDoor from "./VaultDoor";
 import { playChime, playSiren } from "../lib/sfx";
 
-// Baris statis: dipakai untuk semua ronde lama dan jalur resume/backfill.
+// Static row: used for all old rounds and the resume/backfill paths.
 function StaticRow({ r }: { r: RoundRecord }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3">
@@ -42,8 +42,8 @@ function StaticRow({ r }: { r: RoundRecord }) {
   );
 }
 
-// Kunci sesi untuk ronde yang urutan reveal-nya sudah pernah diputar, agar
-// remount (navigasi bolak-balik, backfill) tidak mengulang animasi.
+// Session key for a round whose reveal sequence has already played, so
+// a remount (navigating back and forth, backfill) does not replay the animation.
 const animatedKeys = new Set<string>();
 
 function recordKey(r: RoundRecord): string {
@@ -93,11 +93,11 @@ function RevealTile({
   );
 }
 
-// Dramatic reveal (Batch 2 #4): MURNI urutan tampilan dari RoundRecord yang
-// sudah terdekripsi utuh oleh collectResolution(). Tidak ada dekripsi ulang
-// per brankas, tidak ada transaksi baru. Vault A, B, C terbuka satu per satu
-// (jeda 0,7 detik), lalu skor terbang masuk. Bila urutan ini sudah pernah
-// diputar untuk record yang sama, baris langsung tampil final.
+// Dramatic reveal (Batch 2 #4): PURELY a display sequence from the RoundRecord that
+// collectResolution() has already fully decrypted. No re-decryption
+// per vault, no new transaction. Vaults A, B, C open one at a time
+// (0,7-second gaps), then the scores fly in. If this sequence has already
+// played for the same record, the row displays final immediately.
 function RevealRow({ r }: { r: RoundRecord }) {
   const key = recordKey(r);
   const [step, setStep] = useState(() => (animatedKeys.has(key) ? 4 : 0));

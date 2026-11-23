@@ -1,8 +1,8 @@
 import { Eye, Lock, Play, Swords, X } from "lucide-react";
 
-// Mission Briefing: onboarding 3 kartu untuk pengunjung pertama kali.
-// Ditampilkan sekali (dismissal disimpan di localStorage oleh App) dan bisa
-// dibuka lagi kapan saja lewat tombol "Briefing" di navbar.
+// Mission Briefing: a 3-card onboarding for first-time visitors.
+// Shown once (the dismissal is stored in localStorage by App) and can be
+// reopened at any time via the "Briefing" button in the navbar.
 interface Props {
   open: boolean;
   onClose: () => void;

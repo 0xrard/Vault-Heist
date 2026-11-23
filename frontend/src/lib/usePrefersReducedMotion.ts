@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 
-// Hook prefers-reduced-motion (Batch 5): satu-satunya pintu bagi komponen
-// untuk tahu apakah user meminta gerak minim. Dipakai cipher scramble
-// (VaultCard) dan cinematic reveal (CinematicReveal); sisanya ditangani
-// blok @media di index.css.
+// prefers-reduced-motion hook (Batch 5): the single gateway for components
+// to know whether the user requested reduced motion. Used by the cipher scramble
+// (VaultCard) and the cinematic reveal (CinematicReveal); the rest is handled by
+// the @media block in index.css.
 export function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState<boolean>(
     () =>

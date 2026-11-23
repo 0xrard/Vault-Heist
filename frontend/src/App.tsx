@@ -44,13 +44,13 @@ export default function App() {
   const [briefingOpen, setBriefingOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
 
-  // Mission Briefing: tampil sekali untuk pengunjung pertama kali;
-  // dismissal disimpan sebagai boolean di localStorage.
+  // Mission Briefing: shown once to first-time visitors;
+  // the dismissal is stored as a boolean in localStorage.
   useEffect(() => {
     try {
       if (!localStorage.getItem("vaultheist:briefingSeen")) setBriefingOpen(true);
     } catch {
-      /* abaikan */
+      /* ignore */
     }
   }, []);
 
@@ -59,13 +59,13 @@ export default function App() {
     try {
       localStorage.setItem("vaultheist:briefingSeen", "1");
     } catch {
-      /* abaikan */
+      /* ignore */
     }
   }
 
   const showError = useCallback((msg: string) => setError(msg), []);
 
-  // Banner error tidak boleh basi: hilang otomatis setelah 10 detik.
+  // The error banner must not go stale: it disappears automatically after 10 seconds.
   useEffect(() => {
     if (!error) return;
     const t = setTimeout(() => setError(null), 10000);
@@ -226,9 +226,9 @@ export default function App() {
         return;
       }
 
-      // Skor hanya bisa didekripsi publik setelah ronde pertama beres.
-      // Setiap langkah dekripsi diisolasi: satu kegagalan relayer TIDAK boleh
-      // membatalkan seluruh resume — ronde yang gagal tampil sebagai "syncing".
+      // Scores can only be publicly decrypted after the first round completes.
+      // Each decryption step is isolated: one relayer failure must NOT
+      // cancel the whole resume — a failed round displays as "syncing".
       let sc = { you: 0, opp: 0 };
       let scoresKnown = false;
       const hist: RoundRecord[] = [];
@@ -241,11 +241,11 @@ export default function App() {
           sc = player === 1 ? { you: s1, opp: s2 } : { you: s2, opp: s1 };
           scoresKnown = true;
         } catch {
-          /* skor belum bisa dibaca — arena tetap dibuka, polling akan menyinkronkan */
+          /* score not readable yet — the arena still opens, polling will sync it */
         }
 
-        // Riwayat alarm per ronde yang sudah selesai (skor per-ronde tidak tersimpan
-        // onchain, jadi progres skor ditandai -1 = tidak diketahui untuk match resume)
+        // Alarm history for each completed round (per-round scores are not stored
+        // onchain, so score progress is marked -1 = unknown for resumed matches)
         for (let r = 1; r <= completedRounds; r++) {
           try {
             const alarmHandles: string[] = [];
@@ -274,9 +274,9 @@ export default function App() {
           }
         }
       }
-      // Batch 3: catat hasil match Finished untuk win streak, hanya bila
-      // skor final benar-benar terbaca (scoresKnown). Dedupe per matchId
-      // di dalam recordMatchResult membuat pencatatan ulang aman.
+      // Batch 3: record the Finished match result for the win streak, only if
+      // the final score was actually read (scoresKnown). Dedupe per matchId
+      // inside recordMatchResult makes re-recording safe.
       if (info.state === 2 && scoresKnown) {
         recordMatchResult(me, id, sc.you, sc.opp);
       }
@@ -296,14 +296,14 @@ export default function App() {
       if (updated.state === 2) {
         setShowSummary(true);
         setLootRefreshKey((k) => k + 1);
-        // Batch 3: catat hasil akhir untuk win streak (dedupe per matchId).
+        // Batch 3: record the final result for the win streak (dedupe per matchId).
         if (matchId !== null && addressRef.current) {
           recordMatchResult(addressRef.current, matchId, mapped.you, mapped.opp);
         }
       }
-      // Backfill: ronde-ronde sebelumnya yang catatannya hilang (pengambilan
-      // hasilnya sempat gagal) diisi ulang dari kontrak agar RoundHistory
-      // selalu lengkap 1..ronde terakhir, bukan hanya ronde terbaru.
+      // Backfill: earlier rounds whose records are missing (a result fetch
+      // that failed at the time) are refilled from the contract so RoundHistory
+      // is always complete from 1..the last round, not just the newest round.
       if (matchId !== null && record.round > 1) {
         const id = matchId;
         void (async () => {
@@ -336,10 +336,10 @@ export default function App() {
     [matchId]
   );
 
-  // Auto-sync arena: polling ringan membandingkan state onchain vs lokal.
-  // Bila berbeda (ronde/match berubah di luar aliran UI — mis. pengambilan
-  // hasil sempat gagal), bangun ulang seluruh tampilan dari kontrak via
-  // resume(): riwayat lengkap, skor terbaru, dan modal akhir bila Finished.
+  // Arena auto-sync: light polling compares onchain vs local state.
+  // If they differ (round/match changed outside the UI flow — e.g. a result
+  // fetch that failed at the time), rebuild the whole view from the contract via
+  // resume(): full history, latest scores, and the end modal if Finished.
   const resumeRef = useRef(resume);
   resumeRef.current = resume;
   const addressRef = useRef<string | null>(null);
@@ -359,7 +359,7 @@ export default function App() {
           syncingRef.current = false;
         }
       } catch {
-        /* abaikan — interval berikutnya mencoba lagi */
+        /* ignore — the next interval tries again */
       }
     }, 20000);
     return () => clearInterval(t);

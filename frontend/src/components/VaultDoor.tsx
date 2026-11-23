@@ -1,11 +1,11 @@
 import { useId } from "react";
 
-// Pintu brankas SVG (Batch 2 #1): lapisan presentasi murni.
-// variant "sealed" = pintu tertutup + segel laser (stat terenkripsi / belum
-// terungkap). variant "safe" / "alarm" + open = pintu bergeser terbuka,
-// interior bercahaya emas (aman) atau merah + lampu sirine berkedip (alarm).
-// Animasi digerakkan CSS transition di index.css (.vault-door-panel,
-// .vault-wheel, .laser-seal, .siren-light), bukan state/logic baru.
+// SVG vault door (Batch 2 #1): a pure presentation layer.
+// variant "sealed" = closed door + laser seal (stats encrypted / not yet
+// revealed). variant "safe" / "alarm" + open = the door slides open,
+// interior glowing gold (safe) or red + a flashing siren light (alarm).
+// Animation is driven by CSS transitions in index.css (.vault-door-panel,
+// .vault-wheel, .laser-seal, .siren-light), not new state/logic.
 
 interface Props {
   variant: "sealed" | "safe" | "alarm";
@@ -47,13 +47,13 @@ export default function VaultDoor({ variant, open, className }: Props) {
         </radialGradient>
       </defs>
 
-      {/* Lampu sirine, hanya varian alarm */}
+      {/* Siren light, alarm variant only */}
       {variant === "alarm" && <circle cx="60" cy="7" r="5" fill="#f43f5e" className="siren-light" />}
 
-      {/* Rangka brankas */}
+      {/* Vault frame */}
       <rect x="4" y="14" width="112" height="78" rx="8" fill="#0f172a" stroke="#334155" strokeWidth="2" />
 
-      {/* Interior (terlihat saat pintu terbuka) */}
+      {/* Interior (visible when the door is open) */}
       <rect x="12" y="20" width="96" height="66" rx="5" fill={isOpen ? `url(#${glowId})` : "#020617"} />
       {isOpen && variant === "safe" && (
         <g fill="#f59e0b" stroke="#b45309" strokeWidth="1">
@@ -71,21 +71,21 @@ export default function VaultDoor({ variant, open, className }: Props) {
         </g>
       )}
 
-      {/* Panel pintu (bergeser saat terbuka) */}
+      {/* Door panel (slides when open) */}
       <g
         className="vault-door-panel"
         style={{ transform: isOpen ? "translateX(-63%)" : "translateX(0)" }}
       >
         <rect x="12" y="20" width="96" height="66" rx="5" fill={`url(#${steelId})`} stroke="#64748b" strokeWidth="1.5" />
         <rect x="20" y="27" width="80" height="52" rx="4" fill="none" stroke="#475569" strokeWidth="1" />
-        {/* Baut sudut */}
+        {/* Corner bolts */}
         <g fill="#94a3b8">
           <circle cx="18" cy="26" r="2" />
           <circle cx="102" cy="26" r="2" />
           <circle cx="18" cy="80" r="2" />
           <circle cx="102" cy="80" r="2" />
         </g>
-        {/* Roda brankas */}
+        {/* Vault wheel */}
         <g className="vault-wheel" style={{ transform: isOpen ? "rotate(210deg)" : "rotate(0deg)" }}>
           <circle cx="60" cy="53" r="12" fill="none" stroke="#cbd5e1" strokeWidth="3" />
           <line x1="60" y1="41" x2="60" y2="65" stroke="#cbd5e1" strokeWidth="3" />
@@ -93,7 +93,7 @@ export default function VaultDoor({ variant, open, className }: Props) {
           <line x1="49.6" y1="59" x2="70.4" y2="47" stroke="#cbd5e1" strokeWidth="3" />
         </g>
         <circle cx="60" cy="53" r="3.2" fill="#e2e8f0" />
-        {/* Segel laser, hanya saat tertutup */}
+        {/* Laser seal, only when closed */}
         {!isOpen && (
           <line x1="60" y1="22" x2="60" y2="84" stroke="#fb7185" strokeWidth="1.5" strokeDasharray="4 3" className="laser-seal" />
         )}

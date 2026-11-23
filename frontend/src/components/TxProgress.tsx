@@ -1,10 +1,10 @@
 import { CheckCircle2, Loader2 } from "lucide-react";
 
-// Indikator progres 4 tahap untuk aliran LOCK IN & START HEIST.
-// Setiap tahap digerakkan oleh state async ASLI di GameArena.handleSubmit
-// (enkripsi FHE -> tanda tangan MetaMask -> tx.wait() -> ambil hasil +
-// publicDecrypt). Tidak ada timer palsu: tahap hanya maju saat langkah
-// sebelumnya benar-benar selesai, dan berhenti total saat error/penolakan.
+// Four-stage progress indicator for the LOCK IN & START HEIST flow.
+// Each stage is driven by the REAL async state in GameArena.handleSubmit
+// (FHE encryption -> MetaMask signature -> tx.wait() -> fetch results +
+// publicDecrypt). No fake timers: a stage only advances when the previous step
+// has truly completed, and stops completely on error/rejection.
 const STAGES = [
   { name: "Sealing Your Orders", sub: "Encrypting your crew allocation privately." },
   { name: "Confirm in Wallet", sub: "Waiting for your transaction approval." },
@@ -13,7 +13,7 @@ const STAGES = [
 ] as const;
 
 export default function TxProgress({ stage }: { stage: number }) {
-  // stage: 1..4 = tahap yang sedang aktif; tahap sebelumnya tampil selesai.
+  // stage: 1..4 = the currently active stage; earlier stages display as completed.
   return (
     <div className="mt-5 rounded-xl border border-cyan-400/30 bg-slate-900 px-4 py-3.5">
       <div className="flex flex-col gap-3">

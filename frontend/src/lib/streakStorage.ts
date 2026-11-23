@@ -1,16 +1,16 @@
 // ---------------------------------------------------------------------------
 // Win streak persistence (Batch 3)
 //
-// Hasil akhir match (menang / seri / kalah) disimpan di localStorage agar
-// badge "Heist Streak" di Lobby bisa dihitung tanpa membaca kontrak lagi.
+// Final match results (win / draw / loss) are stored in localStorage so
+// the "Heist Streak" badge in the Lobby can be computed without reading the contract again.
 // Prinsip:
-// - Satu entri per matchId (dedupe): match yang sama tidak pernah tercatat
-//   dua kali, walau user me-resume match Finished berkali-kali.
-// - Key di-scope per wallet: vaultheist:results:{walletAddress lowercase}.
-// - Entri diurutkan menaik per matchId (ID match sekuensial onchain, jadi
-//   urutan ini mendekati urutan kronologis) dan dibatasi 50 entri terakhir
-//   agar storage tetap kecil.
-// - Yang disimpan hanya metadata hasil: { matchId, outcome, savedAt }.
+// - One entry per matchId (dedupe): the same match is never recorded
+//   twice, even if the user resumes a Finished match repeatedly.
+// - The key is scoped per wallet: vaultheist:results:{walletAddress lowercase}.
+// - Entries are sorted ascending by matchId (match IDs are sequential onchain, so
+//   this order approximates chronological order) and capped at the last 50 entries
+//   to keep storage small.
+// - Only result metadata is stored: { matchId, outcome, savedAt }.
 // ---------------------------------------------------------------------------
 
 export type MatchOutcome = "win" | "draw" | "loss";
@@ -48,8 +48,8 @@ export function loadMatchResults(walletAddress: string): MatchResultEntry[] {
   }
 }
 
-// Catat hasil satu match Finished. No-op bila matchId sudah tercatat.
-// Mengembalikan daftar entri terbaru setelah pencatatan.
+// Record one Finished match's result. No-op if the matchId is already recorded.
+// Returns the latest entry list after recording.
 export function recordMatchResult(
   walletAddress: string,
   matchId: number,
@@ -66,13 +66,13 @@ export function recordMatchResult(
   try {
     localStorage.setItem(resultsKey(walletAddress), JSON.stringify(next));
   } catch {
-    /* quota / tidak tersedia: streak hanya fitur kosmetik, abaikan */
+    /* quota / unavailable: the streak is only a cosmetic feature, ignore */
   }
   return next;
 }
 
-// Streak = jumlah kemenangan beruntun dihitung dari match paling akhir.
-// Seri atau kalah memutus streak (mengembalikan hitungan ke 0 dari titik itu).
+// Streak = the number of consecutive wins counted from the latest match.
+// A draw or a loss breaks the streak (resetting the count to 0 from that point).
 export function currentWinStreak(entries: MatchResultEntry[]): number {
   let streak = 0;
   for (let i = entries.length - 1; i >= 0; i--) {

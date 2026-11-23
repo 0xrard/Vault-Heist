@@ -4,17 +4,17 @@ import { findMatchCreatedBlock, scanEventLogs } from "./contracts";
 // ---------------------------------------------------------------------------
 // Scout persistence (Batch 1, deliverable 7)
 //
-// Menyimpan hasil dekripsi Scout di localStorage agar tidak hilang saat
-// halaman di-refresh. Prinsip keamanan:
-// - localStorage HANYA kemudahan browser — bukan pengganti FHE ACL. Nilai
-//   cache tidak ditampilkan sebelum status Scout diverifikasi ke state
-//   onchain (event VaultScouted) lewat findScoutOnchain().
-// - Yang disimpan HANYA metadata hasil scout: { vaultIdx, checkAlarm, value,
-//   savedAt }. Tidak pernah ada private key, signature EIP-712, atau
-//   kredensial wallet di sini.
-// - value === null artinya transaksi Scout sudah tercatat onchain tetapi
-//   dekripsinya belum berhasil (relayer lambat) — user bisa retry dekripsi
-//   gratis tanpa transaksi baru.
+// Stores Scout decryption results in localStorage so they are not lost when
+// the page is refreshed. Security principles:
+// - localStorage is ONLY a browser convenience — not a replacement for the FHE ACL. A cached
+//   value is not displayed before the Scout status is verified against the onchain state
+//   (the VaultScouted event) via findScoutOnchain().
+// - ONLY scout-result metadata is stored: { vaultIdx, checkAlarm, value,
+//   savedAt }. There is never a private key, EIP-712 signature, or
+//   wallet credential here.
+// - value === null means the Scout transaction is already recorded onchain but
+//   its decryption has not succeeded yet (slow relayer) — the user can retry the decryption
+//   for free without a new transaction.
 // ---------------------------------------------------------------------------
 
 export interface ScoutCacheEntry {
@@ -26,7 +26,7 @@ export interface ScoutCacheEntry {
 
 const PREFIX = "vaultheist:scout:";
 const MAX_ENTRIES = 20;
-const TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 hari
+const TTL_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 
 export function scoutStorageKey(
   contractAddress: string,
@@ -45,7 +45,7 @@ function allScoutKeys(): string[] {
       if (k && k.startsWith(PREFIX)) keys.push(k);
     }
   } catch {
-    /* localStorage tidak tersedia */
+    /* localStorage unavailable */
   }
   return keys;
 }
@@ -65,7 +65,7 @@ function parseEntry(raw: string | null): ScoutCacheEntry | null {
       return o as ScoutCacheEntry;
     }
   } catch {
-    /* entri rusak -> abaikan */
+    /* corrupt entry -> ignore */
   }
   return null;
 }
@@ -100,7 +100,7 @@ export function saveScout(
     );
     enforceRetention();
   } catch {
-    /* quota / tidak tersedia — abaikan, Scout tetap tercatat onchain */
+    /* quota / unavailable — ignore, the Scout is still recorded onchain */
   }
 }
 
@@ -113,12 +113,12 @@ export function clearScout(
   try {
     localStorage.removeItem(scoutStorageKey(contractAddress, matchId, round, walletAddress));
   } catch {
-    /* abaikan */
+    /* ignore */
   }
 }
 
-// Hapus semua entri Scout (semua ronde) milik satu match + wallet — dipanggil
-// saat match mencapai Finished (state === 2).
+// Delete all Scout entries (all rounds) for one match + wallet — called
+// when the match reaches Finished (state === 2).
 export function pruneMatchScouts(
   contractAddress: string,
   matchId: number,
@@ -134,12 +134,12 @@ export function pruneMatchScouts(
       }
     }
   } catch {
-    /* abaikan */
+    /* ignore */
   }
 }
 
-// Batas retensi global: buang entri kedaluwarsa (TTL) dan batasi jumlah total
-// entri (yang tertua dibuang dulu) agar storage tidak tumbuh tanpa batas.
+// Global retention bound: drop expired entries (TTL) and cap the total number of
+// entries (oldest dropped first) so storage does not grow without bound.
 export function enforceRetention(): void {
   try {
     const now = Date.now();
@@ -157,13 +157,13 @@ export function enforceRetention(): void {
       localStorage.removeItem(extra.key);
     }
   } catch {
-    /* abaikan */
+    /* ignore */
   }
 }
 
-// Migrasi format lama (`vh-scout-${matchId}-${round}` -> { scouted | pendingScout })
-// ke format baru yang ter-scope per kontrak + wallet. Kunci lama selalu dihapus;
-// verifikasi onchain sesudahnya yang menentukan apakah nilai migrasi dipercaya.
+// Migration of the old format (`vh-scout-${matchId}-${round}` -> { scouted | pendingScout })
+// to the new format scoped per contract + wallet. The old key is always deleted;
+// the onchain verification afterwards decides whether the migrated value is trusted.
 export function migrateLegacyScout(
   matchId: number,
   round: number,
@@ -191,35 +191,35 @@ export function migrateLegacyScout(
       });
     }
   } catch {
-    /* format lama tidak valid — abaikan */
+    /* old format invalid — ignore */
   }
 }
 
 // ---------------------------------------------------------------------------
-// Verifikasi onchain: satu-satunya bukti publik bahwa wallet ini benar-benar
-// melakukan Scout di ronde ini adalah event
+// Onchain verification: the only public proof that this wallet actually
+// performed a Scout in this round is the event
 //   VaultScouted(matchId, round, player, vaultIdx, isAlarm)
-// (state RoundData.p1Scouted/p2Scouted di kontrak bersifat private, tidak ada
-// getter publik).
+// (the RoundData.p1Scouted/p2Scouted state in the contract is private; there is no
+// public getter).
 //
-// Batch 4 (P0-B): pemindaian DIJANGKAR di blok MatchCreated dan berjalan
-// maju sampai blok terbaru dalam chunk (lihat lib/contracts.ts). Dulu
-// pencarian memakai jendela blok terakhir yang menyusut dan menyimpulkan
-// "tidak ada" begitu satu query berhasil kosong — padahal event Scout bisa
-// berada lebih tua dari jendela itu sementara cache masih berlaku (TTL 14
-// hari), sehingga cache yang sah terhapus dan Scout terlihat belum terpakai.
-// Sekarang { found: false } hanya dikembalikan setelah SELURUH rentang
-// sejak MatchCreated berhasil dipindai. Mengembalikan:
-//   { found: true, vaultIdx, checkAlarm } — event ditemukan, chain yang menang
-//   { found: false }                      — KONKLUSIF: seluruh rentang sejak
-//                                           MatchCreated dipindai, tidak ada
-//                                           event Scout untuk ronde ini
-//   null                                  — TIDAK KONKLUSIF (jangkar tidak
-//                                           ditemukan / ada chunk RPC yang
-//                                           gagal) -> pemanggil WAJIB jatuh
-//                                           kembali ke cache, jangan hapus
-//                                           cache, jangan simpulkan Scout
-//                                           belum terpakai
+// Batch 4 (P0-B): the scan is ANCHORED at the MatchCreated block and walks
+// forward to the latest block in chunks (see lib/contracts.ts). Previously
+// the search used a shrinking trailing-block window and concluded
+// "not found" as soon as one query succeeded empty — even though the Scout event could
+// be older than that window while the cache was still valid (14-day
+// TTL), so a valid cache was deleted and Scout looked unused.
+// Now { found: false } is only returned after the ENTIRE range
+// since MatchCreated has been scanned successfully. Returns:
+//   { found: true, vaultIdx, checkAlarm } — event found, the chain wins
+//   { found: false }                      — CONCLUSIVE: the entire range since
+//                                           MatchCreated was scanned, there is no
+//                                           Scout event for this round
+//   null                                  — INCONCLUSIVE (anchor not
+//                                           found / an RPC chunk
+//                                           failed) -> the caller MUST fall
+//                                           back to the cache, must not delete
+//                                           the cache, must not conclude Scout is
+//                                           unused yet
 // ---------------------------------------------------------------------------
 export type ScoutChainResult =
   | { found: true; vaultIdx: number; checkAlarm: boolean }
@@ -236,25 +236,25 @@ export async function findScoutOnchain(
     const provider: any = readContract.runner;
     if (!provider?.getBlockNumber) return null;
     const anchor = await findMatchCreatedBlock(readContract, matchId);
-    if (anchor === null) return null; // tanpa jangkar, tidak ada kesimpulan yang sah
+    if (anchor === null) return null; // no anchor, no valid conclusion
     const latest: number = await provider.getBlockNumber();
     const logs = await scanEventLogs(
       readContract,
-      // Batch 6.3.5 (P0): argumen filter Ethers v6 POSISIONAL atas SEMUA
-      // parameter event, bukan hanya yang indexed. Tanda tangan aslinya:
+      // Batch 6.3.5 (P0): Ethers v6 filter arguments are POSITIONAL across ALL
+      // event parameters, not only the indexed ones. The original signature:
       // VaultScouted(matchId indexed, round, player indexed, vaultIdx,
-      // isAlarm) — jadi alamat wallet harus berada di posisi ketiga dengan
-      // null untuk round (non-indexed) di posisi kedua:
-      // (matchId, null, walletAddress). Bentuk dua argumen
-      // (matchId, walletAddress) menaruh alamat di slot round dan Ethers
-      // melempar "cannot filter non-indexed parameters" — itulah sebabnya
-      // verifikasi Scout selalu tidak konklusif sejak Batch 6. Penyaringan
-      // ronde tetap dilakukan dari args log di bawah.
+      // isAlarm) — so the wallet address must be in the third position with
+      // null for round (non-indexed) in the second position:
+      // (matchId, null, walletAddress). The two-argument form
+      // (matchId, walletAddress) puts the address in the round slot and Ethers
+      // throws "cannot filter non-indexed parameters" — that is why
+      // Scout verification was always inconclusive since Batch 6. Round
+      // filtering is still done from the log args below.
       readContract.filters.VaultScouted(matchId, null, walletAddress),
       anchor,
       latest
     );
-    if (logs === null) return null; // rentang tidak lengkap -> tidak konklusif
+    if (logs === null) return null; // incomplete range -> inconclusive
     const mine = logs.filter((l) => Number(l?.args?.round) === round);
     if (mine.length > 0) {
       const a = mine[mine.length - 1].args;

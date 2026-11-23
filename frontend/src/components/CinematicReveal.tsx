@@ -2,21 +2,21 @@ import { useEffect, useState } from "react";
 import VaultDoor from "./VaultDoor";
 import { usePrefersReducedMotion } from "../lib/usePrefersReducedMotion";
 
-// Cinematic reveal overlay (Batch 5 #2): momen utama resolusi ronde.
-// MURNI presentasi di atas data yang SUDAH didekripsi collectResolution
-// yang lama: tidak ada dekripsi/transaksi baru, tidak menyentuh sinkronisasi
-// state, TxProgress, atau jalur recovery. Hanya dipicu jalur submit
-// langsung di GameArena; kedatangan hasil via resume/polling/backfill
-// tidak pernah memicunya (lihat hand-off di bawah).
+// Cinematic reveal overlay (Batch 5 #2): the main moment of round resolution.
+// PURELY presentation on top of data that collectResolution has ALREADY decrypted
+// the old way: no new decryption/transaction, does not touch state synchronization
+// state, TxProgress, or recovery paths. Only triggered by the direct submit path
+// in GameArena; results arriving via resume/polling/backfill
+// never trigger it (see the hand-off below).
 //
-// Hand-off lintas remount: App me-remount GameArena tiap ronde (key berisi
-// currentRound), jadi state overlay di instance lama hilang tepat saat
-// resolusi ronde 1-2 selesai dan instance ronde berikutnya masuk. Data
-// reveal karena itu diserahkan lewat variabel modul sekali-konsumsi ini:
-// instance baru mengambilnya saat mount. Refresh halaman membersihkan
-// memori modul, jadi jalur resume tidak bisa memutar overlay. Jendela
-// kesegaran 20 detik membuang serah-terima basi (mis. arena ditinggalkan
-// lama sebelum instance berikutnya mount).
+// Cross-remount hand-off: App remounts GameArena every round (the key contains
+// currentRound), so the overlay state in the old instance disappears exactly when
+// the round 1-2 resolution completes and the next round's instance enters. The reveal
+// data is therefore handed over through this consume-once module variable:
+// the new instance picks it up on mount. A page refresh clears
+// module memory, so the resume path cannot play the overlay. A 20-second
+// freshness window discards stale hand-offs (e.g. the arena was left
+// for a long time before the next instance mounts).
 
 export interface CinematicRevealData {
   round: number;
@@ -54,9 +54,9 @@ export default function CinematicReveal({
   const [step, setStep] = useState(() => (reduced ? 3 : 0));
   const [doorOpen, setDoorOpen] = useState(false);
 
-  // Urutan: vault A, B, C (satu per ~0,95 dtk), lalu kartu ringkasan,
-  // lalu tutup otomatis. Total ~4 detik. Reduced motion: langsung
-  // ringkasan, tutup lebih cepat, tanpa goyangan/flash (CSS juga mati).
+  // Sequence: vaults A, B, C (one per ~0,95 s), then the summary card,
+  // then auto-close. Total ~4 seconds. Reduced motion: straight to the
+  // summary, closes faster, no shake/flash (CSS is also off).
   useEffect(() => {
     const timers: number[] = [];
     if (reduced) {
@@ -70,8 +70,8 @@ export default function CinematicReveal({
     return () => timers.forEach((t) => window.clearTimeout(t));
   }, [reduced, onDone]);
 
-  // Pintu dibuka sesaat setelah vault fokus tampil agar transisi
-  // geser/putar CSS terlihat (mount langsung terbuka = tanpa transisi).
+  // The door opens a moment after the focused vault appears so the CSS slide/rotate
+  // transition is visible (mounting already open = no transition).
   useEffect(() => {
     if (step >= 3) return;
     setDoorOpen(false);

@@ -14,11 +14,11 @@ interface Props {
   onError: (msg: string) => void;
   onShowBriefing: () => void;
   onShowPrivacy: () => void;
-  lootRefreshKey: number; // naik setiap match selesai -> saldo disembunyikan lagi agar user me-reveal ulang
+  lootRefreshKey: number; // increments on every finished match -> the balance is hidden again so the user reveals it anew
 }
 
-// Heist Rank dari saldo cLOOT yang SUDAH di-reveal user di sesi ini.
-// Murni turunan dari nilai reveal yang ada: tanpa dekripsi atau baca kontrak baru.
+// Heist Rank from the cLOOT balance the user has ALREADY revealed in this session.
+// Purely derived from the existing revealed value: no new decryption or contract reads.
 function heistRank(balance: bigint): string {
   if (balance >= 20000n) return "Mastermind";
   if (balance >= 5000n) return "Safecracker";
@@ -53,8 +53,8 @@ export default function Navbar({
     try {
       const userAddress = await signer.getAddress();
       const handle = await token.confidentialBalanceOf(userAddress);
-      // Saldo yang belum pernah menerima mint masih zero handle -> tampilkan 0
-      // tanpa memanggil relayer (request dekripsi atas zero handle pasti gagal).
+      // A balance that has never received a mint is still the zero handle -> show 0
+      // without calling the relayer (a decryption request over the zero handle would certainly fail).
       if (isZeroHandle(handle)) {
         setLoot(0n);
       } else {

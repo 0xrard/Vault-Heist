@@ -3,10 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 
-// Tab yang terbuka lama bisa memegang referensi chunk dari deployment lama.
-// Bila sebuah chunk lazy (mis. SDK FHE) gagal dimuat karena sudah tergantikan
-// deployment yang lebih baru, muat ulang halaman SEKALI agar tab konsisten
-// dengan build terbaru (guard sessionStorage mencegah loop reload).
+// A long-open tab can hold chunk references from an old deployment.
+// If a lazy chunk (e.g. the FHE SDK) fails to load because it has been replaced by
+// a newer deployment, reload the page ONCE so the tab stays consistent
+// with the latest build (a sessionStorage guard prevents a reload loop).
 window.addEventListener('vite:preloadError', () => {
   const KEY = 'vh-chunk-reloaded'
   if (!sessionStorage.getItem(KEY)) {

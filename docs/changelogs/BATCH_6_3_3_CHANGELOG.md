@@ -1,71 +1,71 @@
 # Batch 6.3.3 — Empty-String Record Correction (Final Hardening Patch)
 
-Satu koreksi satu baris dari audit Batch 6.3.2 oleh Nino. Tidak ada perubahan
-arsitektur, state machine, gameplay, kontrak, atau ABI. Ini patch terakhir
-rangkaian hardening recovery 6.x; setelah ini batas perubahan teknis
-ditetapkan dan pekerjaan beralih ke final campaign QA.
+A one-line correction from Nino's Batch 6.3.2 audit. No changes to
+architecture, state machine, gameplay, contracts, or ABI. This is the final patch in
+the 6.x recovery hardening series; after this, the boundary for technical changes
+is set and the work moves to final campaign QA.
 
-## File yang berubah
+## Files changed
 
-| File | Perubahan |
+| File | Change |
 | --- | --- |
-| frontend/src/lib/pendingTxStorage.ts | Baris 141: `if (!raw)` menjadi `if (raw === null)` di `loadPendingTxResult()` |
-| BATCH_6_3_3_CHANGELOG.md | Baru (dokumen ini) |
+| frontend/src/lib/pendingTxStorage.ts | Line 141: `if (!raw)` becomes `if (raw === null)` in `loadPendingTxResult()` |
+| BATCH_6_3_3_CHANGELOG.md | New (this document) |
 
-GameArena.tsx tidak berubah pada batch ini.
+GameArena.tsx is unchanged in this batch.
 
-## Alasan
+## Rationale
 
-`localStorage.getItem()` memiliki dua hasil yang berbeda maknanya:
+`localStorage.getItem()` has two results with different meanings:
 
-- `null`: key memang tidak ada, klasifikasi `absent` benar.
-- `""`: key ADA tetapi nilainya string kosong, yaitu record yang ada namun
-  tidak valid.
+- `null`: the key genuinely does not exist, so the `absent` classification is correct.
+- `""`: the key EXISTS but its value is an empty string, i.e. a record that exists but
+  is not valid.
 
-Kondisi lama `if (!raw)` menyamakan keduanya sebagai `absent`, sehingga
-sebuah key transaksi yang isinya kosong (kerusakan atau perubahan data) lolos
-dari perlindungan fail-closed Batch 6.3.2: hidrasi dianggap berhasil, event
-scan boleh berjalan, dan kontrol berpotensi terbuka selagi transaksi asli
-masih pending.
+The old condition `if (!raw)` treated both as `absent`, so
+a transaction key with empty contents (corruption or data tampering) slipped
+past the Batch 6.3.2 fail-closed protection: hydration was considered successful, the event
+scan was allowed to run, and controls could potentially open while the original transaction
+was still pending.
 
-Dengan `if (raw === null)`:
+With `if (raw === null)`:
 
-- `null` → `absent` (tidak berubah).
-- `""` → lanjut ke `JSON.parse("")`, melempar SyntaxError → `invalid` →
-  hidrasi fail-closed + peringatan recovery (jalur 6.3.2 yang sudah ada).
-- JSON rusak lain → `invalid` (tidak berubah).
-- JSON valid, identitas tidak cocok → `invalid` (tidak berubah).
+- `null` → `absent` (unchanged).
+- `""` → proceeds to `JSON.parse("")`, throws SyntaxError → `invalid` →
+  hydration fails closed + recovery warning (the existing 6.3.2 path).
+- Other corrupt JSON → `invalid` (unchanged).
+- Valid JSON, identity mismatch → `invalid` (unchanged).
 
-## Risiko regresi
+## Regression risk
 
-Minimal. Satu-satunya perilaku yang berubah adalah klasifikasi string
-kosong: dari `absent` menjadi `invalid`. Tidak ada jalur penulisan yang
-menyimpan string kosong (`savePendingTx` selalu menulis JSON record
-lengkap), jadi nilai kosong hanya dapat muncul dari kerusakan atau campur
-tangan eksternal, persis kasus yang harus fail-closed.
+Minimal. The only behavior that changes is the classification of an empty
+string: from `absent` to `invalid`. No write path
+stores an empty string (`savePendingTx` always writes a complete JSON record
+), so an empty value can only arise from corruption or external
+interference — exactly the case that must fail closed.
 
 ## Acceptance
 
-| # | Skenario | Hasil | Bukti |
+| # | Scenario | Result | Evidence |
 | --- | --- | --- | --- |
-| 1 | Key tidak ada (`null`) | `absent`, verifikasi onchain lanjut seperti sebelumnya | Kondisi `raw === null`, baris 141 |
-| 2 | Key ada, nilai string kosong (`""`) | `invalid`, fail-closed + peringatan recovery | `""` tidak lolos kondisi null, masuk `JSON.parse`; primitif penentunya dieksekusi langsung: `JSON.parse("")` melempar SyntaxError (diverifikasi dengan node pada sesi patch ini), ditangkap jalur parse 6.3.2 yang mengembalikan `invalid` |
-| 3 | Key ada, JSON rusak | `invalid` (tidak berubah) | Jalur parse 6.3.2 |
-| 4 | Key ada, JSON valid, identitas tidak cocok | `invalid` (tidak berubah) | Jalur validasi 6.3.2 |
-| 5 | Key ada, record valid | `found` (tidak berubah) | Jalur validasi 6.3.2 |
+| 1 | Key does not exist (`null`) | `absent`, onchain verification proceeds as before | The `raw === null` condition, line 141 |
+| 2 | Key exists, value is an empty string (`""`) | `invalid`, fail-closed + recovery warning | `""` does not pass the null check, enters `JSON.parse`; its deciding primitive was executed directly: `JSON.parse("")` throws SyntaxError (verified with node in this patch session), caught by the 6.3.2 parse path which returns `invalid` |
+| 3 | Key exists, corrupt JSON | `invalid` (unchanged) | The 6.3.2 parse path |
+| 4 | Key exists, valid JSON, identity mismatch | `invalid` (unchanged) | The 6.3.2 validation path |
+| 5 | Key exists, valid record | `found` (unchanged) | The 6.3.2 validation path |
 
-Simulasi live (transaksi pending + refresh, record korup yang disuntikkan,
-storage failure) tetap berada di daftar QA manual Nino dan tidak diklaim
-terverifikasi di sini.
+Live simulation (pending transaction + refresh, injected corrupt record,
+storage failure) remains on Nino's manual QA list and is not claimed
+verified here.
 
-## Verifikasi (dijalankan pada sesi patch ini)
+## Verification (run in this patch session)
 
 - TypeScript: `npx tsc --noEmit` exit 0.
-- Frontend build: `npm run build` exit 0 (hanya peringatan ukuran chunk
-  FHE WASM yang sudah ada sebelumnya).
-- Kontrak: `npx hardhat test` run segar, 13 passing, 0 failing.
-- Primitif regresi: `JSON.parse("")` terkonfirmasi melempar SyntaxError.
-- File terkunci identik sebelum dan sesudah (MD5):
+- Frontend build: `npm run build` exit 0 (only the pre-existing FHE WASM chunk
+  size warning).
+- Contracts: fresh `npx hardhat test` run, 13 passing, 0 failing.
+- Regression primitive: `JSON.parse("")` confirmed to throw SyntaxError.
+- Locked files identical before and after (MD5):
   - contracts/VaultHeist.sol `8b9240785791a1dfcf87e21a925d1b71`
   - contracts/HeistLootToken.sol `ac30a967b2a670c1f46c7018cfa7085e`
   - frontend/.env `3d3fdb9b2b89541503ef2b6c3095a1aa`

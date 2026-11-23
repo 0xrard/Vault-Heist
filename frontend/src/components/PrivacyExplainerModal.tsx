@@ -1,8 +1,8 @@
 import { Eye, KeyRound, Lock, Scale, X } from "lucide-react";
 
-// "? How Privacy Works": penjelasan FHE berbahasa awam dengan analogi
-// Amplop Tertutup & Wasit Buta (Sealed Envelope & Blind Referee).
-// Tanpa jargon blockchain — pemain awam harus paham dalam 30 detik.
+// "? How Privacy Works": a layperson's explanation of FHE using the
+// Sealed Envelope & Blind Referee analogy.
+// No blockchain jargon — a lay player should understand it in 30 seconds.
 interface Props {
   open: boolean;
   onClose: () => void;

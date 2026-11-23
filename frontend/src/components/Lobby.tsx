@@ -34,8 +34,8 @@ export default function Lobby({
 
   const isBusy = busy !== null;
 
-  // Win streak dari hasil match Finished yang tercatat lokal (Batch 3).
-  // Dihitung ulang tiap render dari localStorage: murah (maks 50 entri).
+  // Win streak from locally recorded Finished match results (Batch 3).
+  // Recomputed on every render from localStorage: cheap (max 50 entries).
   const winStreak = address ? currentWinStreak(loadMatchResults(address)) : 0;
 
   async function loadMyMatches() {

@@ -1,7 +1,7 @@
-// SFX Vault Heist (Batch 2 #5): semua suara disintesis Web Audio API,
-// tanpa file audio sama sekali. AudioContext dibuat malas (lazy) dan hanya
-// di-resume dari handler gestur user, sesuai kebijakan autoplay browser.
-// Pilihan mute tersimpan di localStorage dan dihormati semua pemutar.
+// Vault Heist SFX (Batch 2 #5): all sounds are synthesized with the Web Audio API,
+// with no audio files at all. The AudioContext is created lazily and only
+// resumed from a user-gesture handler, per browser autoplay policy.
+// The mute choice is stored in localStorage and honored by every player.
 
 const MUTE_KEY = "vaultheist:muted";
 
@@ -25,7 +25,7 @@ export function setMuted(value: boolean): void {
   try {
     window.localStorage.setItem(MUTE_KEY, value ? "1" : "0");
   } catch {
-    /* localStorage tidak tersedia: abaikan */
+    /* localStorage unavailable: ignore */
   }
 }
 
@@ -72,7 +72,7 @@ function tone({ freq, endFreq, type = "sine", dur = 0.15, gain = 0.06, delay = 0
     osc.start(t0);
     osc.stop(t0 + dur + 0.05);
   } catch {
-    /* audio gagal: diamkan */
+    /* audio failed: stay silent */
   }
 }
 
@@ -96,55 +96,55 @@ function noiseBurst(dur = 0.12, gain = 0.1, cutoff = 500, delay = 0): void {
     src.connect(filter).connect(env).connect(audio.destination);
     src.start(t0);
   } catch {
-    /* audio gagal: diamkan */
+    /* audio failed: stay silent */
   }
 }
 
-// Klik mekanik pendek saat agen ditambah / dikurangi (pitch beda arah).
+// A short mechanical click when an agent is added / removed (pitch differs by direction).
 export function playTick(up: boolean): void {
   tone({ freq: up ? 1350 : 950, type: "square", dur: 0.045, gain: 0.035 });
   noiseBurst(0.03, 0.02, 3000);
 }
 
-// Batch 5: suara INTERAKSI vs KONFIRMASI dipisah. Klik lembut ini hanya
-// menandai tombol ditekan (belum ada hasil apa pun). Suara konfirmasi
-// (playLock / playSonar) baru berbunyi SETELAH transaksi benar-benar
-// berhasil, jadi transaksi yang ditolak wallet tidak terdengar sukses.
+// Batch 5: INTERACTION vs CONFIRMATION sounds are separated. This soft click only
+// marks a button press (no result yet). The confirmation sounds
+// (playLock / playSonar) only play AFTER the transaction has truly
+// succeeded, so a wallet-rejected transaction does not sound successful.
 export function playClick(): void {
   tone({ freq: 2100, type: "square", dur: 0.03, gain: 0.018 });
   noiseBurst(0.025, 0.012, 4000);
 }
 
-// Tick sangat lembut saat nilai slider alokasi berubah saat drag (Batch 5).
-// Hanya dipanggil saat nilai integer benar-benar berubah, gain kecil agar
-// drag panjang tidak menjadi rentetan bunyi.
+// A very soft tick when the allocation slider value changes during a drag (Batch 5).
+// Only called when the integer value actually changes, with low gain so
+// a long drag does not become a stream of sounds.
 export function playSliderTick(): void {
   tone({ freq: 1150, type: "square", dur: 0.03, gain: 0.012 });
 }
 
-// Ping sonar dua kali, nuansa hacking: KONFIRMASI transaksi Scout berhasil
-// tercatat onchain (Batch 5; sebelumnya berbunyi saat tombol ditekan).
+// A double sonar ping, hacking vibe: CONFIRMATION that the Scout transaction succeeded
+// and was recorded onchain (Batch 5; previously it played when the button was pressed).
 export function playSonar(): void {
   tone({ freq: 880, endFreq: 1320, type: "sine", dur: 0.18, gain: 0.05 });
   tone({ freq: 880, endFreq: 1320, type: "sine", dur: 0.22, gain: 0.03, delay: 0.16 });
 }
 
-// Blip naik saat nilai Scout berhasil terdekripsi dan tampil.
+// A rising blip when the Scout value is successfully decrypted and displayed.
 export function playReveal(): void {
   tone({ freq: 620, type: "triangle", dur: 0.09, gain: 0.055 });
   tone({ freq: 930, type: "triangle", dur: 0.14, gain: 0.055, delay: 0.08 });
 }
 
-// Bunyi kunci baja berat: KONFIRMASI submitAllocation berhasil tercatat
-// onchain (Batch 5; sebelumnya berbunyi saat LOCK IN ditekan, sebelum
-// enkripsi dan persetujuan wallet).
+// A heavy steel-lock sound: CONFIRMATION that submitAllocation succeeded and was recorded
+// onchain (Batch 5; previously it played when LOCK IN was pressed, before
+// encryption and wallet approval).
 export function playLock(): void {
   tone({ freq: 140, endFreq: 55, type: "sine", dur: 0.28, gain: 0.14 });
   noiseBurst(0.14, 0.1, 420);
   tone({ freq: 320, endFreq: 180, type: "square", dur: 0.07, gain: 0.03, delay: 0.1 });
 }
 
-// Sirine dua nada pendek saat alarm brankas meledak.
+// A short two-tone siren when a vault alarm goes off.
 export function playSiren(): void {
   for (let i = 0; i < 3; i++) {
     tone({ freq: 660, type: "square", dur: 0.13, gain: 0.028, delay: i * 0.26 });
@@ -152,13 +152,13 @@ export function playSiren(): void {
   }
 }
 
-// Denting koin klasik dua nada saat loot didapat.
+// A classic two-tone coin chime when loot is won.
 export function playCoin(): void {
   tone({ freq: 988, type: "square", dur: 0.09, gain: 0.04 });
   tone({ freq: 1319, type: "square", dur: 0.3, gain: 0.04, delay: 0.09 });
 }
 
-// Ding lembut saat brankas terungkap aman selama dramatic reveal.
+// A soft ding when a vault is revealed safe during the dramatic reveal.
 export function playChime(): void {
   tone({ freq: 1175, type: "triangle", dur: 0.22, gain: 0.045 });
   tone({ freq: 1568, type: "sine", dur: 0.3, gain: 0.03, delay: 0.07 });

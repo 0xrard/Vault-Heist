@@ -5,11 +5,11 @@ import HeistLootTokenArtifact from "../abi/HeistLootToken.json";
 export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS as string;
 export const TOKEN_ADDRESS = import.meta.env.VITE_TOKEN_ADDRESS as string | undefined;
 
-// Semua pembacaan onchain (view calls) lewat RPC publik yang terverifikasi,
-// BUKAN lewat RPC bawaan MetaMask user — RPC kustom/bawaan wallet yang
-// bermasalah membuat eth_call mengembalikan data kosong ("missing revert
-// data") seolah kontrak tidak ada. Wallet hanya dipakai untuk tanda tangan
-// dan pengiriman transaksi.
+// All onchain reads (view calls) go through the verified public RPC,
+// NOT through the user's built-in MetaMask RPC — a broken custom/built-in wallet RPC
+// makes eth_call return empty data ("missing revert
+// data") as if the contract did not exist. The wallet is only used for signatures
+// and sending transactions.
 export const SEPOLIA_RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";
 export const readProvider = new JsonRpcProvider(SEPOLIA_RPC_URL);
 
@@ -59,10 +59,10 @@ export interface UserMatch {
   info: MatchInfo;
 }
 
-// Daftar match milik satu wallet: enumerasi ID dari nextMatchId (terbaru
-// dulu, dibatasi maxScan agar panggilan RPC tetap ringan), lalu saring yang
-// player1/player2-nya adalah wallet ini. Tanpa event scan — node RPC publik
-// memangkas riwayat log lama, enumerasi langsung selalu lengkap.
+// List of one wallet's matches: enumerate IDs from nextMatchId (newest
+// first, bounded by maxScan to keep RPC calls light), then filter to those whose
+// player1/player2 is this wallet. No event scan — public RPC nodes
+// prune old log history, so direct enumeration is always complete.
 export async function fetchUserMatches(
   contract: Contract,
   userAddress: string,
@@ -84,39 +84,39 @@ export async function fetchUserMatches(
 export interface RoundRecord {
   matchId: number;
   round: number;
-  alarms: [boolean, boolean, boolean]; // per Vault A/B/C: true = alarm berbunyi
-  alarmsKnown?: boolean; // false = dekripsi status alarm ronde ini belum berhasil (relayer)
+  alarms: [boolean, boolean, boolean]; // per Vault A/B/C: true = the alarm went off
+  alarmsKnown?: boolean; // false = this round's alarm-status decryption has not succeeded yet (relayer)
   scoreYou: number;
   scoreOpp: number;
 }
 
 // ---------------------------------------------------------------------------
-// Pemindaian event onchain terjangkar (Batch 4 — Gameplay Reliability).
+// Anchored onchain event scanning (Batch 4 — Gameplay Reliability).
 //
-// RPC publik menolak rentang eth_getLogs yang terlalu lebar, jadi semua
-// pemindaian berjalan dalam chunk. Jangkarnya adalah blok event
-// MatchCreated(matchId): tidak ada pencarian "jendela terakhir N blok" yang
-// bisa menyimpulkan tidak-ada sebelum seluruh riwayat match dipindai.
-// Hasil null / conclusive:false berarti TIDAK KONKLUSIF (jangkar tidak
-// ditemukan atau ada chunk yang gagal) — pemanggil tidak boleh
-// menyimpulkan apa pun dari hasil itu.
+// Public RPCs reject overly wide eth_getLogs ranges, so all
+// scans run in chunks. The anchor is the block of the
+// MatchCreated(matchId) event: there is no "last N blocks window" search that
+// could conclude absence before the match's entire history is scanned.
+// A null result / conclusive:false means INCONCLUSIVE (anchor not
+// found, or a chunk failed) — the caller must not
+// conclude anything from that result.
 // ---------------------------------------------------------------------------
 export const LOG_CHUNK_BLOCKS = 10000;
-const MAX_ANCHOR_CHUNKS = 48; // ~480 ribu blok ke belakang untuk mencari MatchCreated
+const MAX_ANCHOR_CHUNKS = 48; // ~480 thousand blocks back to search for MatchCreated
 
 // ---------------------------------------------------------------------------
-// Cache blok jangkar MatchCreated (Batch 6, P1).
+// MatchCreated anchor-block cache (Batch 6, P1).
 //
-// Tanpa cache, setiap arena dimuat memindai mundur dari blok terbaru untuk
-// menemukan MatchCreated. Blok yang sudah ditemukan disimpan di
-// localStorage dengan kunci terikat chainId + alamat kontrak + matchId.
-// Cache TIDAK pernah dipercaya begitu saja: sebelum dipakai, bloknya
-// divalidasi murah dengan query MatchCreated tepat di blok tersimpan itu
-// (filter sudah terikat matchId lewat topic). Bila validasi menemukan event
-// di blok itu -> cache sah. Bila query berhasil tetapi kosong -> cache
-// salah/basi, dibuang, dan pemindaian penuh berjalan seperti sebelumnya.
-// Bila query validasi itu sendiri gagal (RPC) -> hasil tidak konklusif
-// (null), sama seperti kegagalan scan lainnya.
+// Without the cache, every arena load scans backward from the latest block to
+// find MatchCreated. A found block is stored in
+// localStorage under a key bound to chainId + contract address + matchId.
+// The cache is NEVER trusted blindly: before use, its block is
+// validated cheaply with a MatchCreated query at exactly that stored block
+// (the filter is already bound to matchId via topic). If validation finds the event
+// at that block -> the cache is valid. If the query succeeds but is empty -> the cache is
+// wrong/stale, discarded, and the full scan runs as before.
+// If the validation query itself fails (RPC) -> the result is inconclusive
+// (null), like any other scan failure.
 // ---------------------------------------------------------------------------
 const ANCHOR_CACHE_PREFIX = "vaultheist:anchor:";
 
@@ -139,7 +139,7 @@ function saveAnchorCache(chainId: number, contractAddress: string, matchId: numb
   try {
     localStorage.setItem(anchorCacheKey(chainId, contractAddress, matchId), String(block));
   } catch {
-    /* storage tidak tersedia — abaikan, scan tetap benar */
+    /* storage unavailable — ignore, the scan is still correct */
   }
 }
 
@@ -147,13 +147,13 @@ function dropAnchorCache(chainId: number, contractAddress: string, matchId: numb
   try {
     localStorage.removeItem(anchorCacheKey(chainId, contractAddress, matchId));
   } catch {
-    /* abaikan */
+    /* ignore */
   }
 }
 
-// Blok tempat match ini dibuat (event MatchCreated), dicari mundur dari
-// blok terbaru dalam chunk (atau dari cache terverifikasi, lihat di atas).
-// null = tidak ditemukan dalam jangkauan / RPC gagal (tidak konklusif).
+// The block where this match was created (the MatchCreated event), searched backward from
+// the latest block in chunks (or from the verified cache, see above).
+// null = not found within reach / RPC failed (inconclusive).
 export async function findMatchCreatedBlock(
   contract: Contract,
   matchId: number
@@ -163,13 +163,13 @@ export async function findMatchCreatedBlock(
     if (!provider?.getBlockNumber) return null;
     const filter = contract.filters.MatchCreated(matchId);
 
-    // Batch 6: coba cache jangkar dulu, dengan validasi satu blok.
+    // Batch 6: try the anchor cache first, with one-block validation.
     let cacheScope: { chainId: number; address: string } | null = null;
     try {
       const network = await provider.getNetwork();
       cacheScope = { chainId: Number(network.chainId), address: String(contract.target) };
     } catch {
-      cacheScope = null; // tanpa identitas chain/kontrak, lewati cache
+      cacheScope = null; // no chain/contract identity, skip the cache
     }
     if (cacheScope) {
       const cached = loadAnchorCache(cacheScope.chainId, cacheScope.address, matchId);
@@ -178,7 +178,7 @@ export async function findMatchCreatedBlock(
         try {
           validation = await contract.queryFilter(filter, cached, cached);
         } catch {
-          return null; // validasi cache gagal di RPC -> tidak konklusif
+          return null; // cache validation failed at the RPC -> inconclusive
         }
         if (validation.length > 0) return cached;
         dropAnchorCache(cacheScope.chainId, cacheScope.address, matchId);
@@ -194,7 +194,7 @@ export async function findMatchCreatedBlock(
       try {
         logs = await contract.queryFilter(filter, from, to);
       } catch {
-        return null; // chunk ditolak RPC -> jangkar tidak konklusif
+        return null; // chunk rejected by the RPC -> anchor inconclusive
       }
       if (logs.length > 0) {
         const block = Number(logs[0].blockNumber);
@@ -209,9 +209,9 @@ export async function findMatchCreatedBlock(
   }
 }
 
-// Pindai event dari fromBlock sampai toBlock dalam chunk berurutan.
-// Mengembalikan null bila ADA chunk yang gagal: rentang tidak lengkap,
-// jadi kesimpulan "tidak ada event" tidak sah.
+// Scan events from fromBlock to toBlock in sequential chunks.
+// Returns null if ANY chunk fails: the range is incomplete,
+// so a "no events" conclusion is not valid.
 export async function scanEventLogs(
   contract: Contract,
   filter: any,
@@ -232,16 +232,16 @@ export async function scanEventLogs(
 }
 
 export interface RoundCommitState {
-  mine: boolean; // wallet ini sudah commit di ronde ini (event AllocationCommitted)
-  opponent: boolean; // lawan sudah commit di ronde ini
-  conclusive: boolean; // false = scan tidak lengkap, jangan simpulkan apa pun
+  mine: boolean; // this wallet has already committed this round (AllocationCommitted event)
+  opponent: boolean; // the opponent has already committed this round
+  conclusive: boolean; // false = the scan is incomplete, do not conclude anything
 }
 
-// Status commit kedua pemain untuk satu ronde, dari event
-// AllocationCommitted(matchId, round, player) sejak blok MatchCreated.
-// Dipakai GameArena untuk memulihkan status setelah refresh: tanpa ini,
-// pemain yang sudah commit melihat tombol LOCK IN lagi dan transaksinya
-// akan revert di kontrak.
+// Both players' commit status for one round, from the
+// AllocationCommitted(matchId, round, player) event since the MatchCreated block.
+// Used by GameArena to restore status after a refresh: without this,
+// a player who already committed would see the LOCK IN button again and their transaction
+// would revert in the contract.
 export async function findRoundCommits(
   contract: Contract,
   matchId: number,

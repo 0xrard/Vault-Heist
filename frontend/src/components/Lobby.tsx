@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Bot, ChevronLeft, ChevronRight, Copy, Crosshair, Eye, Flame, History, Loader2, Play, RefreshCw, Swords, Users } from "lucide-react";
-import { fetchUserMatches, getGameReadContract, type UserMatch } from "../lib/contracts";
+import { fetchMatchCreatedAt, fetchUserMatches, getGameReadContract, type UserMatch } from "../lib/contracts";
 import { currentWinStreak, loadMatchResults } from "../lib/streakStorage";
 
 interface Props {
@@ -12,6 +12,31 @@ interface Props {
   onJoinPvp: (matchId: number) => void;
   onResume: (matchId: number) => void;
   onEnterWaiting: () => void;
+}
+
+// Batch 6.3.9 (Nino's rule): finished matches stay in the list
+// permanently, but an unfinished match (waiting or in progress) is
+// hidden automatically once it is more than 30 minutes old, so stale
+// rooms stop cluttering the list. This is a display filter only —
+// nothing is deleted onchain (the contract has no delete), and a
+// hidden match can still be entered through Resume Match by ID. Age
+// is measured from the MatchCreated block timestamp; if that anchor
+// is beyond the public RPC's log reach, the match is necessarily far
+// older than 30 minutes and is hidden as well.
+const UNFINISHED_TTL_SECONDS = 30 * 60;
+
+async function hideStaleUnfinished(matches: UserMatch[]): Promise<UserMatch[]> {
+  const contract = getGameReadContract();
+  const nowSec = Date.now() / 1000;
+  const checked = await Promise.all(
+    matches.map(async (m) => {
+      if (m.info.state === 2) return m; // Finished: always kept
+      const createdAt = await fetchMatchCreatedAt(contract, m.id);
+      if (createdAt === null) return null; // beyond log reach = far older than the limit
+      return nowSec - createdAt <= UNFINISHED_TTL_SECONDS ? m : null;
+    })
+  );
+  return checked.filter((m): m is UserMatch => m !== null);
 }
 
 export default function Lobby({
@@ -42,7 +67,8 @@ export default function Lobby({
     if (!address) return;
     setLoadingMatches(true);
     try {
-      setMyMatches(await fetchUserMatches(getGameReadContract(), address));
+      const all = await fetchUserMatches(getGameReadContract(), address);
+      setMyMatches(await hideStaleUnfinished(all));
     } catch {
       setMyMatches([]);
     } finally {
@@ -221,6 +247,11 @@ export default function Lobby({
                 <RefreshCw className={`size-3.5 ${loadingMatches ? "animate-spin" : ""}`} /> Refresh
               </button>
             </div>
+            <p className="mb-3 text-xs text-slate-500">
+              Finished matches stay listed permanently. Unfinished matches are hidden
+              automatically after 30 minutes — they still exist onchain and can be opened
+              anytime via Resume Match by ID.
+            </p>
             {loadingMatches && myMatches === null ? (
               <p className="flex items-center gap-2 text-sm text-slate-500">
                 <Loader2 className="size-4 animate-spin" /> Loading your matches from Sepolia…

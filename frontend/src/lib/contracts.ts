@@ -209,6 +209,25 @@ export async function findMatchCreatedBlock(
   }
 }
 
+// Unix timestamp (seconds) of the block that created this match, via
+// the anchored MatchCreated lookup above. null = the anchor could not
+// be determined (outside the RPC's log reach, or an RPC failure).
+export async function fetchMatchCreatedAt(
+  contract: Contract,
+  matchId: number
+): Promise<number | null> {
+  const block = await findMatchCreatedBlock(contract, matchId);
+  if (block === null) return null;
+  try {
+    const provider: any = contract.runner;
+    if (!provider?.getBlock) return null;
+    const b = await provider.getBlock(block);
+    return b ? Number(b.timestamp) : null;
+  } catch {
+    return null;
+  }
+}
+
 // Scan events from fromBlock to toBlock in sequential chunks.
 // Returns null if ANY chunk fails: the range is incomplete,
 // so a "no events" conclusion is not valid.

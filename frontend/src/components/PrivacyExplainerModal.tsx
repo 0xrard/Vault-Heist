@@ -1,6 +1,6 @@
 import { Eye, KeyRound, Lock, Scale, X } from "lucide-react";
 
-// "? How Privacy Works": a layperson's explanation of FHE using the
+// "How Privacy Works": a layperson's explanation of FHE using the
 // Sealed Envelope & Blind Referee analogy.
 // No blockchain jargon — a lay player should understand it in 30 seconds.
 interface Props {

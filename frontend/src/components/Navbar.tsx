@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, ChevronDown, Coins, Eye, EyeOff, HelpCircle, Loader2, Lock, LogOut, Vault, Volume2, VolumeX, Wallet } from "lucide-react";
+import { BookOpen, ChevronDown, Coins, Eye, EyeOff, Loader2, Lock, LogOut, Vault, Volume2, VolumeX, Wallet } from "lucide-react";
 import type { Signer } from "ethers";
 import { getTokenContract, getTokenReadContract, TOKEN_ADDRESS } from "../lib/contracts";
 import { friendlyError, isZeroHandle, userDecryptHandle } from "../lib/fhe";
@@ -100,7 +100,7 @@ export default function Navbar({
             onClick={onShowPrivacy}
             className="flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-cyan-400/50 hover:text-cyan-300"
           >
-            <HelpCircle className="size-3.5" /> ? How Privacy Works
+            How Privacy Works
           </button>
           <button
             onClick={() => {

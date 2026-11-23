@@ -123,3 +123,8 @@ While reviewing the connected-wallet pill during 6.3.8 testing prep, Nino noted 
 
 
 **Addendum 5 clarification (same day, Nino's wording):** "still auto-connect, but stay in the lobby." The silent wallet reconnect is independent of arena restore and applies to every visit (unless the Disconnect marker is set): a fresh tab lands in the lobby **with the wallet already connected**; only the automatic arena entry is reserved for same-tab refreshes. The tab-session gate therefore sits after the reconnect and chain check inside the restore effect, immediately before the hint is loaded.
+
+
+## Addendum 6 — Privacy button label cleaned (Nino's call, during freeze)
+
+The navbar privacy button rendered a HelpCircle icon plus a literal "? " before its label — a doubled question mark. Per Nino's decision, both are removed; the button now reads simply **How Privacy Works**. The unused `HelpCircle` import was removed with it, and the matching comment in `PrivacyExplainerModal.tsx` was updated. No behavior change; the button still opens the same modal. This was the last change before the 6.3.8 freeze.

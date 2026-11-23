@@ -104,3 +104,10 @@ While reviewing the connected-wallet pill during 6.3.8 testing prep, Nino noted 
 **Gap found (23 Nov, live):** The arena had no exit at all during an active match — the only route back to the lobby was the finished-match summary. Before session restore this was masked by refresh-to-lobby; with restore working, a player was effectively trapped in an active arena.
 
 **Change:** A persistent **Leave Match** button in the arena header (next to the operation number), wired through a new `onLeave` prop to the existing `setScreen("lobby")` path in `App.tsx`. Leaving is view-level only: the match stays Active onchain (the contract has no forfeit function) and can be resumed anytime from the lobby's match history; the arena → lobby transition clears the session hint, so a later refresh stays in the lobby (this is exactly what test 12 exercises). Leaving while a commit is confirming is safe by the Batch 6.3 design: the pending-transaction record is written by the send flow itself, independent of the arena staying mounted.
+
+
+## Addendum 4 — Boot splash instead of the lobby flash (found by live test 5 re-run)
+
+**Finding (23 Nov, live, video evidence):** On the fixed build, test 5's restore worked — refresh during Solo match #19 returned to the same arena — but the lobby painted in full for about a second first (the app's initial screen is the lobby; the asynchronous restore lands only after the wallet check and one chain read). Functionally a pass, visually a glitch.
+
+**Fix (`App.tsx` only):** A `bootRestoring` state, initialized synchronously on first render: true only when a session hint exists and the Disconnect marker is not set (both localStorage helpers never throw, so the initializer is safe). While true, the first paint is a minimal "Reconnecting to your match…" splash instead of the lobby. The restore effect clears it in a `finally`, and an 8-second hard cap guarantees the splash can never trap the player if the wallet or RPC stalls (the restore may still complete afterwards and enter the arena then). Visits without a hint, and visits after an explicit Disconnect, render the lobby immediately, exactly as before.

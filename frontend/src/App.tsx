@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, X } from "lucide-react";
+import { AlertTriangle, Loader2, X } from "lucide-react";
 import { BrowserProvider, type Signer } from "ethers";
 import Navbar from "./components/Navbar";
 import Lobby from "./components/Lobby";
@@ -40,6 +40,17 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   const [screen, setScreen] = useState<"lobby" | "arena">("lobby");
+  // Batch 6.3.8 addendum: while a saved session hint exists, the first
+  // paint is a short "reconnecting" splash instead of the lobby, so a
+  // refresh during an active match does not flash the lobby before the
+  // restore effect lands the player back in the arena. Initialized
+  // synchronously from localStorage (both helpers never throw); visits
+  // without a hint, and visits after an explicit Disconnect, render the
+  // lobby immediately, exactly as before.
+  const [bootRestoring, setBootRestoring] = useState<boolean>(() => {
+    if (isDisconnectedMarkerSet()) return false;
+    return loadSessionHint() !== null;
+  });
   const [busy, setBusy] = useState<string | null>(null);
   const [waitingMatchId, setWaitingMatchId] = useState<number | null>(null);
 
@@ -419,6 +430,10 @@ export default function App() {
   useEffect(() => {
     if (restoreAttemptedRef.current) return;
     restoreAttemptedRef.current = true;
+    // Hard cap: never trap the player on the splash if the wallet or
+    // the RPC stalls; the restore itself may still complete afterwards
+    // and enter the arena then.
+    const bootCap = window.setTimeout(() => setBootRestoring(false), 8000);
     void (async () => {
       try {
         // Batch 6.3.8 addendum: an explicit Disconnect wins over silent
@@ -451,6 +466,9 @@ export default function App() {
         await resumeRef.current(hint.matchId);
       } catch {
         /* silent — any failure leaves the app exactly as before */
+      } finally {
+        window.clearTimeout(bootCap);
+        setBootRestoring(false);
       }
     })();
     // Mount-once by design (guarded by restoreAttemptedRef).
@@ -504,7 +522,14 @@ export default function App() {
         </div>
       )}
 
-      {screen === "lobby" || matchId === null || !matchInfo || !signer ? (
+      {bootRestoring ? (
+        <main className="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-4 py-24">
+          <div className="flex items-center gap-3 font-mono text-sm text-slate-400">
+            <Loader2 className="size-5 animate-spin text-cyan-300" />
+            Reconnecting to your match…
+          </div>
+        </main>
+      ) : screen === "lobby" || matchId === null || !matchInfo || !signer ? (
         <Lobby
           busy={busy}
           waitingMatchId={waitingMatchId}

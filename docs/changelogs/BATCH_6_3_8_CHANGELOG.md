@@ -86,3 +86,14 @@ While reviewing the connected-wallet pill during 6.3.8 testing prep, Nino noted 
 
 - **(13)** Disconnect → refresh: the app stays disconnected (no silent reconnect), and the session hint is gone (no arena restore is attempted).
 - **(14)** After a Disconnect, a manual Connect connects normally; a later refresh then silently reconnects and restores again (the marker was cleared by the manual Connect).
+
+
+## Addendum 2 — Mount-ordering fix (found by live test 6, before re-freeze)
+
+**Finding (23 Nov, live):** Test 6 (refresh as PvP player 2, match #18) failed: the wallet-2 browser landed in the lobby. Evidence ruled out the mundane causes — the deployed bundle was current (Disconnect chevron present), silent reconnect had succeeded (pill showed the correct player-2 address), and the match was Active onchain with the correct player2. The session hint was gone by the time the restore effect read it.
+
+**Root cause:** The session-persistence effect ran on the initial mount with `screen === "lobby"` and cleared the hint unconditionally; effects run in declaration order, so the clear executed before the restore effect's asynchronous `loadSessionHint()`. Whether a restore succeeded depended on effect timing and on the manual Resume path masking the flaw, not on the design being correct.
+
+**Fix (`App.tsx`, persistence effect only):** the clear branch now requires a real arena → lobby transition, tracked with a `prevScreenRef`. The initial mount no longer clears. Restore-time failure branches (address mismatch, match not Active, fetch failure) still clear the hint inside the restore effect itself, and genuine exits (leave button, account change, Disconnect) are all arena → lobby transitions, so they still clear exactly as before.
+
+**Re-test required:** Test 6 (PvP player-2 refresh restore) and Test 5 (Solo refresh restore) on the rebuilt package.

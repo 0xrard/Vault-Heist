@@ -105,10 +105,20 @@ export default function App() {
   // funnel through setScreen("lobby"). The hint is only a hint: on load
   // it is honored solely after the chain confirms the match is still
   // Active (see the restore effect below).
+  const prevScreenRef = useRef(screen);
   useEffect(() => {
+    const prev = prevScreenRef.current;
+    prevScreenRef.current = screen;
     if (screen === "arena" && matchId !== null && address) {
       saveSessionHint(matchId, address);
-    } else if (screen === "lobby") {
+    } else if (screen === "lobby" && prev === "arena") {
+      // Only a real arena -> lobby transition clears the hint. The
+      // initial page load also renders the lobby, and clearing there
+      // erased the hint before the restore effect below could read it
+      // (exposed by the wallet-2 live test on match #18: silent
+      // reconnect succeeded, but the player landed in the lobby).
+      // Restore-time failures clear the hint inside the restore effect
+      // itself, so not clearing on mount loses nothing.
       clearSessionHint();
     }
   }, [screen, matchId, address]);

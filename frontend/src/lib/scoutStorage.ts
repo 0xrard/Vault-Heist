@@ -240,14 +240,17 @@ export async function findScoutOnchain(
     const latest: number = await provider.getBlockNumber();
     const logs = await scanEventLogs(
       readContract,
-      // Batch 6 (P0): filter Ethers v6 hanya menerima argumen untuk field
-      // INDEXED. VaultScouted(matchId indexed, round, player indexed,
-      // vaultIdx, isAlarm) -> bentuk yang benar hanya dua argumen
-      // (matchId, player). Bentuk lama (matchId, null, walletAddress)
-      // melempar error di Ethers, tertangkap catch, dan verifikasi selalu
-      // berakhir tidak konklusif. Penyaringan ronde tetap dilakukan dari
-      // args log di bawah.
-      readContract.filters.VaultScouted(matchId, walletAddress),
+      // Batch 6.3.5 (P0): argumen filter Ethers v6 POSISIONAL atas SEMUA
+      // parameter event, bukan hanya yang indexed. Tanda tangan aslinya:
+      // VaultScouted(matchId indexed, round, player indexed, vaultIdx,
+      // isAlarm) — jadi alamat wallet harus berada di posisi ketiga dengan
+      // null untuk round (non-indexed) di posisi kedua:
+      // (matchId, null, walletAddress). Bentuk dua argumen
+      // (matchId, walletAddress) menaruh alamat di slot round dan Ethers
+      // melempar "cannot filter non-indexed parameters" — itulah sebabnya
+      // verifikasi Scout selalu tidak konklusif sejak Batch 6. Penyaringan
+      // ronde tetap dilakukan dari args log di bawah.
+      readContract.filters.VaultScouted(matchId, null, walletAddress),
       anchor,
       latest
     );

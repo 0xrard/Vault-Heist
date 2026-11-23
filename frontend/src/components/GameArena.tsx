@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Eye, Loader2, Lock, RefreshCw, Send, TriangleAlert } from "lucide-react";
+import { CheckCircle2, Eye, Loader2, Lock, LogOut, RefreshCw, Send, TriangleAlert } from "lucide-react";
 import type { Signer } from "ethers";
 import VaultCard, { type ScoutedStat } from "./VaultCard";
 import TxProgress from "./TxProgress";
@@ -39,6 +39,7 @@ interface Props {
   onRoundResolved: (record: RoundRecord, updated: MatchInfo, scores: { you: number; opp: number }) => void;
   onError: (msg: string) => void;
   onResync: () => void;
+  onLeave: () => void;
 }
 
 // Batch 6: explicit sync status. The principle: the UI may only
@@ -58,6 +59,7 @@ export default function GameArena({
   onRoundResolved,
   onError,
   onResync,
+  onLeave,
 }: Props) {
   const round = matchInfo.currentRound;
   const [bids, setBids] = useState<[number, number, number]>([4, 3, 3]);
@@ -1026,6 +1028,14 @@ export default function GameArena({
           </div>
         ))}
         <span className="ml-auto font-mono text-xs text-slate-500">OPERATION #{matchId}</span>
+        <button
+          type="button"
+          onClick={onLeave}
+          title="Back to the lobby. This match stays active onchain and can be resumed anytime from your match history."
+          className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800/60 px-3 py-1.5 font-mono text-xs font-semibold text-slate-300 transition hover:border-red-400/50 hover:text-red-300"
+        >
+          <LogOut className="size-3.5" /> Leave Match
+        </button>
       </div>
 
       {/* Batch 6.3 addendum: storage-unavailable warning. Displayed

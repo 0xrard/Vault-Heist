@@ -527,6 +527,7 @@ export default function App() {
             onRoundResolved={handleRoundResolved}
             onError={showError}
             onResync={() => void resume(matchId)}
+            onLeave={() => setScreen("lobby")}
           />
           <div className="mx-auto w-full max-w-6xl px-4 pb-10">
             <RoundHistory history={history} />

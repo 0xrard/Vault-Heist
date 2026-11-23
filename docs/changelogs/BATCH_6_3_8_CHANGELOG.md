@@ -97,3 +97,10 @@ While reviewing the connected-wallet pill during 6.3.8 testing prep, Nino noted 
 **Fix (`App.tsx`, persistence effect only):** the clear branch now requires a real arena → lobby transition, tracked with a `prevScreenRef`. The initial mount no longer clears. Restore-time failure branches (address mismatch, match not Active, fetch failure) still clear the hint inside the restore effect itself, and genuine exits (leave button, account change, Disconnect) are all arena → lobby transitions, so they still clear exactly as before.
 
 **Re-test required:** Test 6 (PvP player-2 refresh restore) and Test 5 (Solo refresh restore) on the rebuilt package.
+
+
+## Addendum 3 — Leave Match button (requested during live testing)
+
+**Gap found (23 Nov, live):** The arena had no exit at all during an active match — the only route back to the lobby was the finished-match summary. Before session restore this was masked by refresh-to-lobby; with restore working, a player was effectively trapped in an active arena.
+
+**Change:** A persistent **Leave Match** button in the arena header (next to the operation number), wired through a new `onLeave` prop to the existing `setScreen("lobby")` path in `App.tsx`. Leaving is view-level only: the match stays Active onchain (the contract has no forfeit function) and can be resumed anytime from the lobby's match history; the arena → lobby transition clears the session hint, so a later refresh stays in the lobby (this is exactly what test 12 exercises). Leaving while a commit is confirming is safe by the Batch 6.3 design: the pending-transaction record is written by the send flow itself, independent of the arena staying mounted.

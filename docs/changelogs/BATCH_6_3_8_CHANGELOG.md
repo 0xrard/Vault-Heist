@@ -69,3 +69,20 @@ Guarded by a `useRef` flag so it runs at most once per page load:
 ## Status
 
 Implemented and statically verified in the local tree. **Not zipped, not deployed.** This batch changes load-time behavior, so per the freeze rule it supersedes the Batch 6.3.7 freeze (`FREEZE.md`, left untouched by this batch) **only after Nino's live tests pass** — the agreed test list: silent reconnect with an authorized wallet (no click, no popup); no-popup behavior with no authorized account; account-switch followed by refresh follows the new account; refresh mid-Solo restores the same arena; refresh mid-PvP as player 2 restores as player 2; refresh during a pending commit and after Scout use keep the Batch 6 recovery paths intact (regression); refresh on a finished match and with a foreign wallet's hint stay in the lobby; one full Solo to Finished; leave-then-refresh does not bounce back. After those pass, the freeze record is re-issued on top of 6.3.8.
+
+## Addendum — Disconnect (added before live testing, Nino's request)
+
+While reviewing the connected-wallet pill during 6.3.8 testing prep, Nino noted the app had no log out at all: the pill was a plain status display, and the only way to disconnect was from inside the wallet extension. A **Disconnect** action is now part of this batch (added before the batch shipped, so it is covered by the same live test pass).
+
+**What was added:**
+
+- **`frontend/src/components/Navbar.tsx`** — new `onDisconnect` prop. The connected pill is now a button (same visuals, plus a `ChevronDown` icon) opening a small right-aligned dropdown whose single item is **Disconnect** (with the `LogOut` icon). A transparent full-screen backdrop closes the menu on an outside click. The wrong-network and Connect branches are unchanged.
+- **`frontend/src/App.tsx`** — new `handleDisconnect()`: clears the signer and address and returns to the lobby. The session hint needs no explicit clearing there: the existing session-persistence effect clears it automatically when the screen becomes "lobby". `onDisconnect={handleDisconnect}` is passed to `Navbar`.
+- **`frontend/src/lib/sessionStorage.ts`** — a "user disconnected" opt-out marker under the key `vaultheist:disconnected:{chainId}:{contractAddress}` (same context binding as the session hint), with `setDisconnectedMarker()` / `isDisconnectedMarkerSet()` / `clearDisconnectedMarker()` under the same never-throw discipline as the hint helpers. `handleDisconnect()` sets it; the silent reconnect/restore effect checks it **first** and returns immediately while it is set; `ensureWallet()` clears it in its full-connect branch only.
+
+**Opt-out marker semantics — why it exists:** silent reconnect is designed to undo *accidental* disconnects (a page refresh). Without the marker, an *explicit* Disconnect would be silently undone by the very next page load — the user would click "log out" and find themselves logged back in after any refresh, which reads as the app ignoring them. The marker records the deliberate choice so reconnect honors it across loads. Conversely, a manual **Connect** clears the marker: an explicit connect is a fresh opt-in, and from that point silent reconnect and session restore resume as designed. The marker stores no credential — just the fact of the choice, bound to chain + contract like the hint.
+
+**Two live tests added to the agreed list:**
+
+- **(13)** Disconnect → refresh: the app stays disconnected (no silent reconnect), and the session hint is gone (no arena restore is attempted).
+- **(14)** After a Disconnect, a manual Connect connects normally; a later refresh then silently reconnects and restores again (the marker was cleared by the manual Connect).

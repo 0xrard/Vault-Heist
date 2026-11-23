@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, Coins, Eye, EyeOff, HelpCircle, Loader2, Lock, Vault, Volume2, VolumeX, Wallet } from "lucide-react";
+import { BookOpen, ChevronDown, Coins, Eye, EyeOff, HelpCircle, Loader2, Lock, LogOut, Vault, Volume2, VolumeX, Wallet } from "lucide-react";
 import type { Signer } from "ethers";
 import { getTokenContract, getTokenReadContract, TOKEN_ADDRESS } from "../lib/contracts";
 import { friendlyError, isZeroHandle, userDecryptHandle } from "../lib/fhe";
@@ -10,6 +10,7 @@ interface Props {
   address: string | null;
   chainId: bigint | null;
   onConnect: () => void;
+  onDisconnect: () => void;
   onSwitchNetwork: () => void;
   onError: (msg: string) => void;
   onShowBriefing: () => void;
@@ -30,6 +31,7 @@ export default function Navbar({
   address,
   chainId,
   onConnect,
+  onDisconnect,
   onSwitchNetwork,
   onError,
   onShowBriefing,
@@ -41,6 +43,7 @@ export default function Navbar({
   const [revealing, setRevealing] = useState(false);
   const [sigNote, setSigNote] = useState(false);
   const [shownKey, setShownKey] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const wrongNetwork = chainId !== null && chainId !== 11155111n;
 
@@ -163,12 +166,36 @@ export default function Navbar({
               Switch to Sepolia
             </button>
           ) : signer && address ? (
-            <div className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/80 px-3.5 py-2">
-              <span className="size-2 rounded-full bg-emerald-400" />
-              <span className="font-mono text-sm">
-                {address.slice(0, 6)}…{address.slice(-4)}
-              </span>
-              <span className="text-xs text-slate-400">Sepolia</span>
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen((o) => !o)}
+                className="flex items-center gap-2 rounded-full border border-slate-700 bg-slate-800/80 px-3.5 py-2 transition hover:border-slate-500"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+              >
+                <span className="size-2 rounded-full bg-emerald-400" />
+                <span className="font-mono text-sm">
+                  {address.slice(0, 6)}…{address.slice(-4)}
+                </span>
+                <span className="text-xs text-slate-400">Sepolia</span>
+                <ChevronDown className="size-3.5 text-slate-400" />
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 z-20 mt-2 w-44 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 shadow-xl shadow-black/40">
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onDisconnect();
+                      }}
+                      className="flex w-full items-center gap-2 px-3.5 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-slate-800 hover:text-rose-300"
+                    >
+                      <LogOut className="size-4" /> Disconnect
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <button

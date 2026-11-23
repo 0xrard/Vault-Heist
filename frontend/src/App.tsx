@@ -24,7 +24,14 @@ import {
   type RoundRecord,
 } from "./lib/contracts";
 import { recordMatchResult } from "./lib/streakStorage";
-import { clearSessionHint, loadSessionHint, saveSessionHint } from "./lib/sessionStorage";
+import {
+  clearDisconnectedMarker,
+  clearSessionHint,
+  isDisconnectedMarkerSet,
+  loadSessionHint,
+  saveSessionHint,
+  setDisconnectedMarker,
+} from "./lib/sessionStorage";
 
 export default function App() {
   const [signer, setSigner] = useState<Signer | null>(null);
@@ -116,6 +123,11 @@ export default function App() {
     setSigner(s);
     setAddress(await s.getAddress());
     setChainId(await currentChainId());
+    // A manual Connect is a fresh opt-in: clear the Disconnect opt-out
+    // marker so silent reconnect/restore work again on later loads.
+    // (Full-connect branch only — the signer-reuse fast path above
+    // never runs while the marker matters, and must not clear it.)
+    clearDisconnectedMarker();
     return s;
   }
 
@@ -126,6 +138,20 @@ export default function App() {
     } catch (err: any) {
       showError(friendlyError(err));
     }
+  }
+
+  // Batch 6.3.8 addendum: explicit Disconnect (log out). Drops the
+  // signer/address and returns to the lobby; the session-persistence
+  // effect above clears the session hint automatically when the screen
+  // becomes "lobby", so that is deliberately NOT duplicated here. The
+  // opt-out marker is what makes the disconnect stick: without it, the
+  // next page load's silent reconnect would quietly undo the user's
+  // explicit choice.
+  function handleDisconnect() {
+    setSigner(null);
+    setAddress(null);
+    setScreen("lobby");
+    setDisconnectedMarker();
   }
 
   async function handleSwitch() {
@@ -385,6 +411,10 @@ export default function App() {
     restoreAttemptedRef.current = true;
     void (async () => {
       try {
+        // Batch 6.3.8 addendum: an explicit Disconnect wins over silent
+        // reconnect. If the opt-out marker is set, stay disconnected
+        // and keep the marker (only a manual Connect clears it).
+        if (isDisconnectedMarkerSet()) return;
         const eth = (window as any).ethereum;
         if (!eth) return;
         const accounts: string[] = await eth.request({ method: "eth_accounts" });
@@ -444,6 +474,7 @@ export default function App() {
         address={address}
         chainId={chainId}
         onConnect={handleConnect}
+        onDisconnect={handleDisconnect}
         onSwitchNetwork={handleSwitch}
         onError={showError}
         onShowBriefing={() => setBriefingOpen(true)}

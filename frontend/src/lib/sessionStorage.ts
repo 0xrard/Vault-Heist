@@ -28,6 +28,12 @@ import { SEPOLIA_CHAIN_ID } from "./fhe";
 //   is unavailable (private mode / quota / blocked), every function
 //   degrades to the pre-6.3.8 behavior — no hint, no restore, the app
 //   behaves exactly as before.
+// - A separate "user disconnected" marker (addendum to this batch)
+//   records an EXPLICIT Disconnect click, so the silent reconnect
+//   honors it on later page loads instead of quietly undoing the
+//   user's choice. A manual Connect clears the marker: an explicit
+//   connect is a fresh opt-in, and silent reconnect/restore resume
+//   from that point on.
 // ---------------------------------------------------------------------------
 
 export interface SessionHint {
@@ -81,6 +87,50 @@ export function loadSessionHint(): SessionHint | null {
 export function clearSessionHint(): void {
   try {
     localStorage.removeItem(sessionHintKey());
+  } catch {
+    /* storage unavailable — nothing to clear, ignore */
+  }
+}
+
+// ---------------------------------------------------------------------------
+// "User disconnected" opt-out marker (Batch 6.3.8 addendum)
+//
+// Silent reconnect exists to undo ACCIDENTAL disconnects (a refresh),
+// never DELIBERATE ones. When the user clicks Disconnect, this marker
+// is written under the same (chainId, contractAddress) context binding
+// as the session hint; the mount-time silent reconnect checks it FIRST
+// and stays disconnected while it is set. A manual Connect clears it
+// (see ensureWallet in App.tsx). Same never-throw discipline as above:
+// if storage is unavailable the marker simply cannot persist, and a
+// disconnect degrades to lasting only for the current page session.
+// ---------------------------------------------------------------------------
+
+const DISCONNECTED_PREFIX = "vaultheist:disconnected:";
+
+export function disconnectedMarkerKey(): string {
+  return `${DISCONNECTED_PREFIX}${Number(SEPOLIA_CHAIN_ID)}:${CONTRACT_ADDRESS.toLowerCase()}`;
+}
+
+export function setDisconnectedMarker(): boolean {
+  try {
+    localStorage.setItem(disconnectedMarkerKey(), "1");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function isDisconnectedMarkerSet(): boolean {
+  try {
+    return localStorage.getItem(disconnectedMarkerKey()) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function clearDisconnectedMarker(): void {
+  try {
+    localStorage.removeItem(disconnectedMarkerKey());
   } catch {
     /* storage unavailable — nothing to clear, ignore */
   }

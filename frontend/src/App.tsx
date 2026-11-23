@@ -511,7 +511,7 @@ export default function App() {
   }, [screen, matchId, matchInfo?.state, matchInfo?.currentRound, showSummary]);
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="flex min-h-screen flex-col bg-slate-950">
       <Navbar
         signer={signer}
         address={address}
@@ -575,7 +575,11 @@ export default function App() {
         </main>
       )}
 
-      <footer className="border-t border-slate-800/70 px-4 py-4 text-center text-xs text-slate-500">
+      {/* Batch 6.3.15 (Nino's call): mt-auto inside the flex-column root
+          pins this disclaimer to the bottom of the viewport — on short
+          pages (e.g. the lobby with Your Matches collapsed) it must stay
+          at the bottom, not ride up directly under the content. */}
+      <footer className="mt-auto border-t border-slate-800/70 px-4 py-4 text-center text-xs text-slate-500">
         This project is not audited, endorsed or operated by Zama. Use at your own risk.
       </footer>
 

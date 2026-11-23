@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
-import type { Signer } from "ethers";
+import { BrowserProvider, type Signer } from "ethers";
 import Navbar from "./components/Navbar";
 import Lobby from "./components/Lobby";
 import GameArena from "./components/GameArena";
@@ -14,6 +14,7 @@ import {
   ensureSepolia,
   friendlyError,
   publicDecryptHandles,
+  SEPOLIA_CHAIN_ID,
 } from "./lib/fhe";
 import {
   fetchMatch,
@@ -23,6 +24,7 @@ import {
   type RoundRecord,
 } from "./lib/contracts";
 import { recordMatchResult } from "./lib/streakStorage";
+import { clearSessionHint, loadSessionHint, saveSessionHint } from "./lib/sessionStorage";
 
 export default function App() {
   const [signer, setSigner] = useState<Signer | null>(null);
@@ -88,6 +90,21 @@ export default function App() {
       eth.removeListener?.("accountsChanged", onAccounts);
     };
   }, []);
+
+  // Batch 6.3.8: keep an active-match session hint in sync with where the
+  // player actually is. Entering any arena saves {matchId, address};
+  // returning to the lobby clears it — which automatically covers the
+  // leave flow and the accountsChanged handler above, since both already
+  // funnel through setScreen("lobby"). The hint is only a hint: on load
+  // it is honored solely after the chain confirms the match is still
+  // Active (see the restore effect below).
+  useEffect(() => {
+    if (screen === "arena" && matchId !== null && address) {
+      saveSessionHint(matchId, address);
+    } else if (screen === "lobby") {
+      clearSessionHint();
+    }
+  }, [screen, matchId, address]);
 
   async function ensureWallet(): Promise<Signer> {
     if (signer) {
@@ -345,6 +362,61 @@ export default function App() {
   const addressRef = useRef<string | null>(null);
   addressRef.current = address;
   const syncingRef = useRef(false);
+
+  // Batch 6.3.8: silent reconnect + session restore, once on page load.
+  // eth_accounts never prompts: with no installed wallet or no authorized
+  // account, nothing happens — the app starts exactly as before (lobby,
+  // disconnected, no error banner). With an authorized account, the
+  // signer state is restored WITHOUT eth_requestAccounts and WITHOUT
+  // ensureSepolia: a page load must never pop a connect or chain-switch
+  // prompt (the existing wrong-network UI handles a wrong chain, and the
+  // restore below simply does not run on a wrong chain — resume()'s fast
+  // path would call ensureSepolia, so it is only invoked on Sepolia).
+  // A stored hint is then honored only if it belongs to THIS address and
+  // the chain says the match is still Active (state 1); re-entry goes
+  // through resumeRef (the latest resume closure, whose ensureWallet
+  // reuses the signer set above), which re-validates participation and
+  // rebuilds scores/history from chain. A waiting/finished match, an
+  // address mismatch, or any failure clears or ignores the hint and
+  // leaves the app in the lobby, exactly as before this batch.
+  const restoreAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (restoreAttemptedRef.current) return;
+    restoreAttemptedRef.current = true;
+    void (async () => {
+      try {
+        const eth = (window as any).ethereum;
+        if (!eth) return;
+        const accounts: string[] = await eth.request({ method: "eth_accounts" });
+        if (!accounts || accounts.length === 0) return;
+        const provider = new BrowserProvider(eth);
+        const s = await provider.getSigner();
+        const me = await s.getAddress();
+        setSigner(s);
+        setAddress(me);
+        const cid = await currentChainId();
+        setChainId(cid);
+        if (cid !== SEPOLIA_CHAIN_ID) return; // wrong network — stay in the lobby, hint kept
+        const hint = loadSessionHint();
+        if (!hint) return;
+        if (hint.address.toLowerCase() !== me.toLowerCase()) {
+          clearSessionHint();
+          return;
+        }
+        const info = await fetchMatch(getGameReadContract(), hint.matchId);
+        if (info.state !== 1) {
+          clearSessionHint();
+          return;
+        }
+        await resumeRef.current(hint.matchId);
+      } catch {
+        /* silent — any failure leaves the app exactly as before */
+      }
+    })();
+    // Mount-once by design (guarded by restoreAttemptedRef).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (screen !== "arena" || matchId === null || !matchInfo || showSummary) return;
     const localState = matchInfo.state;

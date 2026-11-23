@@ -444,15 +444,6 @@ export default function App() {
         // reconnect. If the opt-out marker is set, stay disconnected
         // and keep the marker (only a manual Connect clears it).
         if (isDisconnectedMarkerSet()) return;
-        // Addendum 5: a fresh tab is a fresh visit. Discard the stale
-        // hint and start in the lobby; re-entry is a deliberate Resume
-        // click, never an automatic drop into a possibly days-old
-        // match. (A refresh in the same tab keeps the tab session and
-        // restores exactly as before.)
-        if (!claimTabSession()) {
-          clearSessionHint();
-          return;
-        }
         const eth = (window as any).ethereum;
         if (!eth) return;
         const accounts: string[] = await eth.request({ method: "eth_accounts" });
@@ -465,6 +456,17 @@ export default function App() {
         const cid = await currentChainId();
         setChainId(cid);
         if (cid !== SEPOLIA_CHAIN_ID) return; // wrong network — stay in the lobby, hint kept
+        // Addendum 5 (semantics settled with Nino, 23 Nov): the silent
+        // reconnect above applies to EVERY visit — a fresh tab still
+        // lands with the wallet connected. What a fresh tab does not
+        // get is the automatic arena restore: closing the tab is
+        // leaving, so the stale hint is discarded and re-entry is a
+        // deliberate Resume click from the lobby. A refresh in the
+        // same tab keeps the tab session and restores as before.
+        if (!claimTabSession()) {
+          clearSessionHint();
+          return;
+        }
         const hint = loadSessionHint();
         if (!hint) return;
         if (hint.address.toLowerCase() !== me.toLowerCase()) {

@@ -120,3 +120,6 @@ While reviewing the connected-wallet pill during 6.3.8 testing prep, Nino noted 
 **Change:** New `claimTabSession()` in `lib/sessionStorage.ts`, built on `sessionStorage` (survives a same-tab refresh, dies with the tab; result memoized per page load). The restore effect now discards the hint and stays in the lobby when the load is a fresh tab, and the boot splash only arms for same-tab loads. Everything else is unchanged: silent reconnect still applies in the lobby (the wallet pill connects without a click), the address gate still guards the refresh path, and the Disconnect marker still wins over everything.
 
 **Revised test expectations:** Test 10 first half now expects lobby (not arena) after tab close + reopen with the same wallet; foreign wallet still expects lobby. Test 6 (wallet-2 refresh restore) is unaffected — it is a same-tab refresh.
+
+
+**Addendum 5 clarification (same day, Nino's wording):** "still auto-connect, but stay in the lobby." The silent wallet reconnect is independent of arena restore and applies to every visit (unless the Disconnect marker is set): a fresh tab lands in the lobby **with the wallet already connected**; only the automatic arena entry is reserved for same-tab refreshes. The tab-session gate therefore sits after the reconnect and chain check inside the restore effect, immediately before the hint is loaded.

@@ -18,18 +18,18 @@ On a public blockchain, simultaneous strategy games suffer from two fatal flaws:
 1. **Last-Block Sniping:** If crew allocations are visible in the mempool or contract state, the second player always counters the first.
 2. **Trivial Math Instead of Psychology:** If vault payouts and alarm limits are readable via `eth_getStorageAt`, the tension of over-committing disappears.
 
-**Vault Heist** solves both using Fully Homomorphic Encryption (FHE). Vault parameters, player allocations, and bot moves remain encrypted throughout the round—only the final alarm status and round score are revealed.
+**Vault Heist** solves both using Fully Homomorphic Encryption (FHE). Vault parameters, player allocations, and bot moves remain encrypted from the public and the opponent throughout the round. Scout allows a player to selectively decrypt one vault statistic through FHE access control. Only the final alarm status and round score are publicly revealed at round end.
 
 ---
 
 ## Game Rules
 
 - **Format:** 3 Rounds, 3 Vaults (`Vault A`, `Vault B`, `Vault C`), playable in **Solo vs. Onchain Bot** or **PvP** mode.
-- **Crew Budget:** Each player starts every round with **10 Crew Points**.
+- **Agent Budget:** Each player starts every round with **10 Agents**.
 - **Hidden Vault State:** Generated every round via onchain FHE randomness:
   - **Loot:** Random `30–93` points.
-  - **Alarm Limit:** Random `6–13` total crew points.
-- **Scout Action (Optional):** Sacrifice **1 Crew Point** (budget drops to 9) to privately decrypt either the **Loot** or **Alarm Limit** of one vault via FHEVM ACL (`FHE.allow`).
+  - **Alarm Limit:** Random `6–13` total agents.
+- **Scout Action (Optional):** Spend **1 Agent** (budget drops to 9) to privately decrypt either the **Loot** or **Alarm Limit** of one vault via FHEVM ACL (`FHE.allow`).
 - **Resolution:**
   - If `Player1Bid + Player2Bid > AlarmLimit` → **Alarm Trips!** Both players score `0` on that vault.
   - Otherwise, the higher bidder takes the full loot (ties split 50/50 via `FHE.shr`).
@@ -39,9 +39,9 @@ On a public blockchain, simultaneous strategy games suffer from two fatal flaws:
 ## Judge Quick-Start (Under 2 Minutes on Sepolia)
 
 1. Open the Live Demo (link above) and connect MetaMask on **Ethereum Sepolia**.
-2. Click **"Mulai Solo vs Bot Onchain"** (no second wallet required).
-3. *(Optional)* Click **Scout** on any vault, confirm the transaction, and sign the gasless **EIP-712** prompt to privately decrypt that vault's secret value.
-4. Allocate your crew points across Vaults A, B, and C, then click **Enkripsi & Kirim Alokasi**.
+2. Click **"Start Solo vs Syndicate AI"** (no second wallet required).
+3. *(Optional)* Click **Scout Loot (-1 Agent)** or **Scout Alarm (-1 Agent)** on any vault, confirm the transaction, and sign the gas-free **EIP-712** prompt to privately decrypt that vault's secret value.
+4. Allocate your agents across Vaults A, B, and C, then click **LOCK IN & START HEIST**.
 5. View the decrypted alarm triggers and updated scoreboard, and finish all 3 rounds.
 
 ---
@@ -74,7 +74,15 @@ mainnet supply, and no redemption. `reward = finalScore × 100`, minted at the e
 of a match. Farming it in Solo mode costs nothing but Sepolia gas, which is
 expected for a demo and is not a mainnet economic claim.
 
-## Security, Privacy Trade-offs & Mainnet Economy Roadmap
+## Project Scope & Deployment
+
+- **Built for the Zama Developer Program campaign** (Season 5, Confidential Gaming track).
+- **Deployed on Ethereum Sepolia only** — the game contract and cLOOT token addresses are listed at the top of this README.
+- **No mainnet deployment is planned.** Vault Heist is a campaign submission and a demonstration of confidential gameplay with FHEVM, not a product launch.
+- **cLOOT is non-monetary testnet reputation** (see the section above): it cannot be redeemed and has no mainnet supply.
+- **Known privacy trade-offs are explicitly documented** in the Security & Privacy Trade-offs section below, including the acknowledged limitations of the current design.
+
+## Security & Privacy Trade-offs
 
 This section documents the findings of an internal design audit (2026-11-21:
 Gemini audit + Muse verification against the deployed contract source). This is
@@ -96,9 +104,9 @@ of this README stands.
    `timeout` anywhere in `VaultHeist.sol` (verified by source search). If Player 1
    has committed and Player 2 goes AFK, the match locks in `Active` forever; a
    match in `WaitingPlayer` with no joiner cannot be cancelled either. A fix
-   (`roundDeadline` + `claimTimeout()`) is a v3 contract change, deliberately
-   deferred until after the Payday Agent deadline (see below) so the verified v2
-   submission is not disturbed.
+   (`roundDeadline` + `claimTimeout()`) would require a new contract version;
+   the verified v2 contract documented here remains the submitted version for
+   this campaign (see Project Scope & Deployment above).
 2. **Scout target leaks via event.** `VaultScouted(..., uint8 vaultIdx, bool
    isAlarm)` (`VaultHeist.sol:59`, emitted at `:155`) is plaintext, as is the
    `scoutVault` transaction itself. In PvP an observer can learn *which* vault was
@@ -109,8 +117,8 @@ of this README stands.
    decryptable (`VaultHeist.sol:315–316`), and the reward formula is public
    (`score × 100`), so an onchain observer can compute one match's mint — even
    though the cumulative `cLOOT` balance stays encrypted. Keeping scores private
-   per-player (`FHE.allow(score, player)`) plus a public `p1Won` boolean is the
-   mainnet alternative.
+   per-player (`FHE.allow(score, player)`) plus a public `p1Won` boolean would
+   be the alternative design.
 4. **Loot inference after a round ends (accepted).** If only Vault C is safe and
    your score rises by 72, observers infer Vault C's loot was 72. Harmless: the
    round is over and the next round re-randomizes all vaults.
@@ -118,30 +126,23 @@ of this README stands.
    `submitAllocation` (`VaultHeist.sol:214/216`), so the second submitter bears
    the FHE computation for all three vaults plus the round-3 `cLOOT` mint. On
    Sepolia this is not an economic problem, and auto-resolve is the better demo
-   UX (one fewer MetaMask confirmation). A standalone `resolveRound()` is the
-   mainnet alternative.
+   UX (one fewer MetaMask confirmation). A standalone `resolveRound()` would be
+   the alternative design.
 6. **Scout after the opponent commits (minor).** In PvP, Player 2 can wait for
    Player 1's commit before scouting. This leaks nothing — bids stay encrypted —
    and only gives a small psychological edge.
 
-### Mainnet economy roadmap (not implemented — testnet only)
-
-- **PvP escrow / wager pool:** rewards come from a zero-sum pool staked by both
-  players (cUSDT / cLOOT locked in the contract), never minted from nothing —
-  so two-wallet collusion cannot profit.
-- **Solo daily cap & win-only mint:** Solo rewards capped per day (e.g. max 3
-  rewarded matches/day, further matches are Practice Mode) and full rewards only
-  for beating the bot.
-- **Token sink:** `cLOOT` burnable for one-use tactical items (e.g. Extra Scout,
-  Alarm Jammer) or to unlock a High-Stakes Vault.
-
 ### Why v2 stays the submitted version
 
 The deployed v2 contract is Etherscan-verified and a full live match (Match #1)
-completed end-to-end onchain, including `RewardsMinted`. A v3 with timeout and
-anti-farming limits would be a separate deploy only after Payday Agent finishes
-(~7–10 Dec 2026), and only replaces v2 in the submission if it passes the same
-test battery (10/10 unit tests + a full live match).
+completed end-to-end onchain, including `RewardsMinted`. Proof: the Match #1
+final-round transaction on Sepolia Etherscan,
+[0x91958806…a67a](https://sepolia.etherscan.io/tx/0x91958806cad839da7e813eef38acb67911b1358f4427c0a5cb4b3ac4837ae67a),
+contains the round-3 `RoundResolved`, the `RewardsMinted` event, and the cLOOT
+mint to the winner in a single transaction. It is the submitted
+version for this campaign, and no redeploy is planned (see Project Scope &
+Deployment above). The limitations listed here are documented openly rather
+than fixed by disturbing a verified, working deployment.
 
 ---
 
@@ -155,8 +156,17 @@ vault-heist/
 ├── scripts/
 │   └── deploy.ts               # Sepolia deployment script
 ├── test/
-│   └── VaultHeist.test.ts      # Full mock FHEVM test suite (Solo, ACL, Overflow, 3-Round)
+│   ├── VaultHeist.test.ts      # Mock FHEVM suite (Solo, ACL, Overflow, 3-Round)
+│   ├── VaultHeist.test.js      # FHEVM suite (Solo, Scout ACL, budget validation, resolution)
+│   └── ClootRewards.test.js    # cLOOT ERC-7984 reward tests
 └── frontend/                   # Vite + React + Zama Relayer SDK
+    └── src/
+        ├── components/         # GameArena, Lobby, VaultCard, VaultDoor, RoundHistory,
+        │                       # Navbar, MatchSummaryModal, MissionBriefingModal,
+        │                       # PrivacyExplainerModal, SyndicateBar, TxProgress,
+        │                       # CinematicReveal
+        └── lib/                # contracts.ts, fhe.ts, scoutStorage.ts, sfx.ts,
+                                # streakStorage.ts, usePrefersReducedMotion.ts
 ```
 
 ## Local Setup & Testing

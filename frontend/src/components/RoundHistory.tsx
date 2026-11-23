@@ -47,7 +47,7 @@ function StaticRow({ r }: { r: RoundRecord }) {
 const animatedKeys = new Set<string>();
 
 function recordKey(r: RoundRecord): string {
-  return `${r.round}|${r.alarms.join(",")}|${r.scoreYou}|${r.scoreOpp}`;
+  return `${r.matchId}|${r.round}|${r.alarms.join(",")}|${r.scoreYou}|${r.scoreOpp}`;
 }
 
 function RevealTile({

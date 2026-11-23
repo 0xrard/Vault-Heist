@@ -79,11 +79,14 @@ export default function Lobby({
     <div className="rise-in mx-auto w-full max-w-3xl px-4 py-8">
       <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl">
         <h1 className="text-2xl font-bold tracking-tight">
-          Rob the vaults. <span className="text-cyan-400">Nobody sees your moves.</span>
+          Rob the vaults. <span className="text-cyan-400">Your strategy stays yours.</span>
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-slate-400">
-          A blind-allocation heist on Zama FHEVM: vault loot, alarm limits, and every crew
-          allocation stay encrypted onchain. Only round results are ever revealed.
+          Your crew allocations and vault secrets stay encrypted. A blind-allocation
+          heist on Zama FHEVM: loot, alarm limits, and every bid are ciphertext
+          onchain. A Scout reveals one stat privately to your wallet only; alarm
+          status and scores become public when the round resolves, and transaction
+          metadata remains visible onchain.
         </p>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">

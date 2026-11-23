@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { AlarmClock, Coins, Eye, Lock, Minus, Plus, User } from "lucide-react";
+import { AlarmClock, Coins, Eye, Minus, Plus, User } from "lucide-react";
 import VaultDoor from "./VaultDoor";
-import { playTick } from "../lib/sfx";
+import { playSliderTick, playTick } from "../lib/sfx";
+import { usePrefersReducedMotion } from "../lib/usePrefersReducedMotion";
 
 export interface ScoutedStat {
   vaultIdx: number;
@@ -17,6 +18,8 @@ interface Props {
   alarmHandle: string | null;
   scouted: ScoutedStat | null; // stat yang sudah di-scout di brankas ini (jika ada)
   scoutUsed: boolean; // scout sudah dipakai di ronde ini (di brankas mana pun)
+  scoutGate?: "syncing" | "ready" | "unknown"; // Batch 6: gerbang verifikasi Scout. "syncing" = pemeriksaan berjalan, "unknown" = verifikasi gagal/tidak konklusif (Scout ditahan + retry), "ready" = status terverifikasi
+  onRetryScoutSync?: () => void; // Batch 6: jalankan ulang verifikasi Scout onchain dari status "unknown"
   busy: boolean;
   locked: boolean; // sudah commit / ronde selesai
   outcome?: "safe" | "alarm" | null; // hasil ronde ini bila sudah diketahui (pintu terbuka)
@@ -25,21 +28,19 @@ interface Props {
   onScout: (idx: number, kind: "loot" | "alarm") => void;
 }
 
-function truncateHandle(h: string | null): string {
-  if (!h) return "0x••••••••";
-  return `${h.slice(0, 6)}…${h.slice(-4)}`;
-}
-
 // Cipher scramble (Batch 2 #3): murni animasi tampilan selama 0,8 detik,
 // lalu terkunci ke nilai asli. Hanya berjalan bila `animate` true (reveal
 // Scout segar); nilai dari cache/restore (mis. setelah F5) langsung tampil.
+// Batch 5: prefers-reduced-motion mematikan scramble, nilai final langsung.
 function ScrambleValue({ value, animate }: { value: number; animate: boolean }) {
+  const reduced = usePrefersReducedMotion();
+  const effectiveAnimate = animate && !reduced;
   const [scrambled, setScrambled] = useState<string | null>(() =>
-    animate ? "•".repeat(String(value).length) : null
+    effectiveAnimate ? "•".repeat(String(value).length) : null
   );
 
   useEffect(() => {
-    if (!animate) {
+    if (!effectiveAnimate) {
       setScrambled(null);
       return;
     }
@@ -58,7 +59,7 @@ function ScrambleValue({ value, animate }: { value: number; animate: boolean }) 
       }
     }, 45);
     return () => window.clearInterval(iv);
-  }, [animate, value]);
+  }, [effectiveAnimate, value]);
 
   if (scrambled === null) return <>{value}</>;
   return (
@@ -99,13 +100,20 @@ function StatRow({
       </div>
     );
   }
+  // Batch 5 #1: nilai terenkripsi tampil sebagai stempel keamanan
+  // CLASSIFIED / SEALED, bukan potongan hex mentah ala dashboard developer.
+  // Handle hex lengkap tetap bisa diperiksa juri teknis lewat tooltip
+  // (atribut title pada stempel).
   return (
     <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2">
       <span className="flex items-center gap-1.5 text-xs font-medium text-slate-400">
         {icon} {label} <span className="font-mono text-[10px] text-slate-600">{range}</span>
       </span>
-      <span className="flex items-center gap-1.5 font-mono text-xs text-slate-500">
-        <Lock className="size-3.5" /> {truncateHandle(handle)}
+      <span
+        title={handle ?? undefined}
+        className="inline-block -rotate-2 rounded border-2 border-rose-400/50 px-2 py-0.5 font-mono text-[10px] font-bold tracking-[0.18em] whitespace-nowrap text-rose-300/90"
+      >
+        CLASSIFIED / SEALED
       </span>
     </div>
   );
@@ -119,6 +127,8 @@ export default function VaultCard({
   alarmHandle,
   scouted,
   scoutUsed,
+  scoutGate = "ready",
+  onRetryScoutSync,
   busy,
   locked,
   outcome = null,
@@ -143,7 +153,7 @@ export default function VaultCard({
       <div className="flex items-center justify-between">
         <h3 className="font-mono text-base font-bold tracking-widest">VAULT {name}</h3>
         <span className="rounded-full border border-slate-700 px-2 py-0.5 font-mono text-[10px] tracking-wide text-slate-400">
-          FHE ENCRYPTED
+          SEALED
         </span>
       </div>
 
@@ -176,19 +186,35 @@ export default function VaultCard({
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={() => onScout(idx, "loot")}
-          disabled={busy || locked || scoutUsed}
+          disabled={busy || locked || scoutUsed || scoutGate !== "ready"}
           className="flex items-center justify-center gap-1 rounded-lg border border-cyan-400/40 bg-cyan-400/10 px-2 py-2 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Eye className="size-3.5" /> Scout Loot (-1 Agent)
         </button>
         <button
           onClick={() => onScout(idx, "alarm")}
-          disabled={busy || locked || scoutUsed}
+          disabled={busy || locked || scoutUsed || scoutGate !== "ready"}
           className="flex items-center justify-center gap-1 rounded-lg border border-cyan-400/40 bg-cyan-400/10 px-2 py-2 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-400/20 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Eye className="size-3.5" /> Scout Alarm (-1 Agent)
         </button>
       </div>
+      {scoutGate === "syncing" && (
+        <p className="text-[11px] text-slate-500">Checking Scout status onchain…</p>
+      )}
+      {scoutGate === "unknown" && (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-amber-300/90">
+          <span>Scout status could not be verified onchain. Scout stays paused until the check succeeds.</span>
+          {onRetryScoutSync && (
+            <button
+              onClick={onRetryScoutSync}
+              className="rounded border border-amber-400/40 px-1.5 py-0.5 font-semibold text-amber-200 transition hover:bg-amber-400/10"
+            >
+              Retry check
+            </button>
+          )}
+        </p>
+      )}
 
       <div className="mt-auto border-t border-slate-800 pt-3">
         <div className="mb-2 flex items-center justify-between">
@@ -231,7 +257,12 @@ export default function VaultCard({
             max={Math.max(maxBid, bid)}
             value={bid}
             disabled={busy || locked}
-            onChange={(e) => onBidChange(idx, Number(e.target.value))}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              // Batch 5: tick sangat lembut hanya saat nilai integer berubah.
+              if (v !== bid) playSliderTick();
+              onBidChange(idx, v);
+            }}
             className="w-full accent-amber-400"
           />
           <button

@@ -1,4 +1,5 @@
 import type { Contract } from "ethers";
+import { findMatchCreatedBlock, scanEventLogs } from "./contracts";
 
 // ---------------------------------------------------------------------------
 // Scout persistence (Batch 1, deliverable 7)
@@ -199,13 +200,26 @@ export function migrateLegacyScout(
 // melakukan Scout di ronde ini adalah event
 //   VaultScouted(matchId, round, player, vaultIdx, isAlarm)
 // (state RoundData.p1Scouted/p2Scouted di kontrak bersifat private, tidak ada
-// getter publik). Mengembalikan:
+// getter publik).
+//
+// Batch 4 (P0-B): pemindaian DIJANGKAR di blok MatchCreated dan berjalan
+// maju sampai blok terbaru dalam chunk (lihat lib/contracts.ts). Dulu
+// pencarian memakai jendela blok terakhir yang menyusut dan menyimpulkan
+// "tidak ada" begitu satu query berhasil kosong — padahal event Scout bisa
+// berada lebih tua dari jendela itu sementara cache masih berlaku (TTL 14
+// hari), sehingga cache yang sah terhapus dan Scout terlihat belum terpakai.
+// Sekarang { found: false } hanya dikembalikan setelah SELURUH rentang
+// sejak MatchCreated berhasil dipindai. Mengembalikan:
 //   { found: true, vaultIdx, checkAlarm } — event ditemukan, chain yang menang
-//   { found: false }                      — query berhasil, tidak ada event
-//                                           dalam jendela blok yang dipindai
-//   null                                  — tidak konklusif (RPC gagal di semua
-//                                           jendela) -> pemanggil boleh jatuh
-//                                           kembali ke cache sebagai fallback
+//   { found: false }                      — KONKLUSIF: seluruh rentang sejak
+//                                           MatchCreated dipindai, tidak ada
+//                                           event Scout untuk ronde ini
+//   null                                  — TIDAK KONKLUSIF (jangkar tidak
+//                                           ditemukan / ada chunk RPC yang
+//                                           gagal) -> pemanggil WAJIB jatuh
+//                                           kembali ke cache, jangan hapus
+//                                           cache, jangan simpulkan Scout
+//                                           belum terpakai
 // ---------------------------------------------------------------------------
 export type ScoutChainResult =
   | { found: true; vaultIdx: number; checkAlarm: boolean }
@@ -221,27 +235,29 @@ export async function findScoutOnchain(
   try {
     const provider: any = readContract.runner;
     if (!provider?.getBlockNumber) return null;
+    const anchor = await findMatchCreatedBlock(readContract, matchId);
+    if (anchor === null) return null; // tanpa jangkar, tidak ada kesimpulan yang sah
     const latest: number = await provider.getBlockNumber();
-    // RPC publik menolak rentang getLogs yang terlalu lebar — coba jendela
-    // besar dulu, lalu menyusut bila ditolak.
-    for (const window of [45000, 10000, 2000]) {
-      try {
-        const logs: any[] = await readContract.queryFilter(
-          readContract.filters.VaultScouted(matchId, null, walletAddress),
-          Math.max(0, latest - window),
-          latest
-        );
-        const mine = logs.filter((l) => Number(l?.args?.round) === round);
-        if (mine.length > 0) {
-          const a = mine[mine.length - 1].args;
-          return { found: true, vaultIdx: Number(a.vaultIdx), checkAlarm: Boolean(a.isAlarm) };
-        }
-        return { found: false };
-      } catch {
-        /* jendela ditolak RPC — coba yang lebih kecil */
-      }
+    const logs = await scanEventLogs(
+      readContract,
+      // Batch 6 (P0): filter Ethers v6 hanya menerima argumen untuk field
+      // INDEXED. VaultScouted(matchId indexed, round, player indexed,
+      // vaultIdx, isAlarm) -> bentuk yang benar hanya dua argumen
+      // (matchId, player). Bentuk lama (matchId, null, walletAddress)
+      // melempar error di Ethers, tertangkap catch, dan verifikasi selalu
+      // berakhir tidak konklusif. Penyaringan ronde tetap dilakukan dari
+      // args log di bawah.
+      readContract.filters.VaultScouted(matchId, walletAddress),
+      anchor,
+      latest
+    );
+    if (logs === null) return null; // rentang tidak lengkap -> tidak konklusif
+    const mine = logs.filter((l) => Number(l?.args?.round) === round);
+    if (mine.length > 0) {
+      const a = mine[mine.length - 1].args;
+      return { found: true, vaultIdx: Number(a.vaultIdx), checkAlarm: Boolean(a.isAlarm) };
     }
-    return null;
+    return { found: false };
   } catch {
     return null;
   }

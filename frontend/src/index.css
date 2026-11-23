@@ -111,3 +111,37 @@ body {
   animation: scan-sweep 0.8s linear both;
   pointer-events: none;
 }
+
+/* Batch 5: kilatan merah cinematic reveal saat alarm meledak */
+@keyframes cine-flash {
+  0%, 100% { opacity: 0; }
+  25% { opacity: 1; }
+  55% { opacity: 0.25; }
+  80% { opacity: 0.8; }
+}
+.cine-flash {
+  animation: cine-flash 0.9s ease-in-out both;
+}
+
+/* Batch 5: prefers-reduced-motion. Semua animasi/transisi gerak Batch 2
+   dan 5 dimatikan terpusat di sini; perubahan state pintu menjadi instan.
+   Perilaku JS yang terkait (scramble, urutan overlay) digerbang hook
+   usePrefersReducedMotion di komponen masing-masing. */
+@media (prefers-reduced-motion: reduce) {
+  .vault-door-panel,
+  .vault-wheel {
+    transition: none;
+  }
+  .laser-seal,
+  .siren-light,
+  .vault-shake,
+  .alarm-stamp,
+  .score-fly,
+  .agent-pop,
+  .scanline,
+  .alarm-pulse,
+  .cine-flash,
+  .rise-in {
+    animation: none !important;
+  }
+}

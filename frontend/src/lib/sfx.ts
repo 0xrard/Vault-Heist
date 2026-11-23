@@ -106,7 +106,24 @@ export function playTick(up: boolean): void {
   noiseBurst(0.03, 0.02, 3000);
 }
 
-// Ping sonar dua kali, nuansa hacking, saat tombol Scout ditekan.
+// Batch 5: suara INTERAKSI vs KONFIRMASI dipisah. Klik lembut ini hanya
+// menandai tombol ditekan (belum ada hasil apa pun). Suara konfirmasi
+// (playLock / playSonar) baru berbunyi SETELAH transaksi benar-benar
+// berhasil, jadi transaksi yang ditolak wallet tidak terdengar sukses.
+export function playClick(): void {
+  tone({ freq: 2100, type: "square", dur: 0.03, gain: 0.018 });
+  noiseBurst(0.025, 0.012, 4000);
+}
+
+// Tick sangat lembut saat nilai slider alokasi berubah saat drag (Batch 5).
+// Hanya dipanggil saat nilai integer benar-benar berubah, gain kecil agar
+// drag panjang tidak menjadi rentetan bunyi.
+export function playSliderTick(): void {
+  tone({ freq: 1150, type: "square", dur: 0.03, gain: 0.012 });
+}
+
+// Ping sonar dua kali, nuansa hacking: KONFIRMASI transaksi Scout berhasil
+// tercatat onchain (Batch 5; sebelumnya berbunyi saat tombol ditekan).
 export function playSonar(): void {
   tone({ freq: 880, endFreq: 1320, type: "sine", dur: 0.18, gain: 0.05 });
   tone({ freq: 880, endFreq: 1320, type: "sine", dur: 0.22, gain: 0.03, delay: 0.16 });
@@ -118,7 +135,9 @@ export function playReveal(): void {
   tone({ freq: 930, type: "triangle", dur: 0.14, gain: 0.055, delay: 0.08 });
 }
 
-// Bunyi kunci baja berat saat LOCK IN ditekan.
+// Bunyi kunci baja berat: KONFIRMASI submitAllocation berhasil tercatat
+// onchain (Batch 5; sebelumnya berbunyi saat LOCK IN ditekan, sebelum
+// enkripsi dan persetujuan wallet).
 export function playLock(): void {
   tone({ freq: 140, endFreq: 55, type: "sine", dur: 0.28, gain: 0.14 });
   noiseBurst(0.14, 0.1, 420);

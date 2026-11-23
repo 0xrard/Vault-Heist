@@ -255,6 +255,7 @@ export default function App() {
             }
             const ac = await publicDecryptHandles(alarmHandles);
             hist.push({
+              matchId: id,
               round: r,
               alarms: alarmHandles.map((h) => Boolean(ac[h])) as [boolean, boolean, boolean],
               alarmsKnown: true,
@@ -263,6 +264,7 @@ export default function App() {
             });
           } catch {
             hist.push({
+              matchId: id,
               round: r,
               alarms: [false, false, false],
               alarmsKnown: false,
@@ -316,6 +318,7 @@ export default function App() {
               }
               const ac = await publicDecryptHandles(alarmHandles);
               rec = {
+                matchId: id,
                 round: r,
                 alarms: alarmHandles.map((h) => Boolean(ac[h])) as [boolean, boolean, boolean],
                 alarmsKnown: true,
@@ -323,7 +326,7 @@ export default function App() {
                 scoreOpp: -1,
               };
             } catch {
-              rec = { round: r, alarms: [false, false, false], alarmsKnown: false, scoreYou: -1, scoreOpp: -1 };
+              rec = { matchId: id, round: r, alarms: [false, false, false], alarmsKnown: false, scoreYou: -1, scoreOpp: -1 };
             }
             setHistory((h) => (h.some((x) => x.round === r) ? h : [...h, rec].sort((a, b) => a.round - b.round)));
           }

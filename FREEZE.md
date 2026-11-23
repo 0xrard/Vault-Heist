@@ -1,9 +1,9 @@
 # FREEZE — Final Build Record
 
 **Frozen:** 23 November 2026 (Asia/Jakarta), by Nino's decision.
-**Frozen build:** Batch 6.3.11. Batch 6.3.8 including Addenda 1–6, plus the 6.3.9 match-list hygiene filter, the 6.3.10 dead-file cleanup, and the 6.3.11 README accuracy pass. Contracts unchanged since deployment.
+**Frozen build:** Batch 6.3.13. Batch 6.3.8 including Addenda 1–6, plus the 6.3.9 match-list hygiene filter, the 6.3.10 dead-file cleanup, the 6.3.11 README accuracy pass, the 6.3.12 README heading correction, and the 6.3.13 LICENSE file. Contracts unchanged since deployment.
 **Status:** Live QA complete (23 Nov 2026), including the full 14-item Batch 6.3.8 live test list. This is the final code state for the Zama Developer Program Season 5 submission. No further code changes are planned; any post-freeze change requires a new batch number, a changelog, and a re-test of the affected paths before it may replace this build.
-**Supersedes:** The Batch 6.3.10 freeze issued earlier the same day, and through it the 6.3.9, 6.3.8 (15:39 WIB), and 6.3.7 (14:01 WIB) freezes. The 6.3.9 change is display-layer only; 6.3.10 deletes provably dead files only; 6.3.11 corrects documentation and pre-fills the frontend `.env.example` — all made at Nino's direction under the freeze rule (new batch number + changelog + re-verification; the suite still passes 13/13).
+**Supersedes:** The Batch 6.3.12 freeze issued earlier the same day, and through it the 6.3.11, 6.3.10, 6.3.9, 6.3.8 (15:39 WIB), and 6.3.7 (14:01 WIB) freezes. The 6.3.9 change is display-layer only; 6.3.10 deletes provably dead files only; 6.3.11 corrects documentation and pre-fills the frontend `.env.example`; 6.3.12 changes one README heading; 6.3.13 adds the LICENSE file — all made at Nino's direction under the freeze rule (new batch number + changelog + re-verification; the suite still passes 13/13).
 
 ## Contract identity (unchanged, verified on Etherscan)
 
@@ -30,6 +30,8 @@
 - Batch 6.3.9: match-list hygiene — finished matches are listed permanently; unfinished matches are hidden automatically once more than 30 minutes old (age measured from the MatchCreated block timestamp). Display filter only: nothing is deleted onchain, and any hidden match remains reachable through Resume Match by ID; the list carries a note saying so.
 - Batch 6.3.10: repo hygiene — deleted the stale `scripts/deploy.js` duplicate of `deploy.ts` and the unreferenced Vite template assets (`frontend/src/assets/`); the README now names the three active test suites (13 tests, all still passing). The `test/*.js` files were verified as live suites and deliberately kept.
 - Batch 6.3.11: README accuracy pass after a full claim-by-claim audit against the contract, the tree, the live UI, and the Match #1 proof transaction — pre-filled `frontend/.env.example` with the live addresses (the README claimed it was pre-filled; it shipped empty), completed the Project Structure `lib/` listing (`pendingTxStorage.ts`, `sessionStorage.ts`), corrected the cLOOT button name to "Reveal", added PvP instructions and a frontend-behavior note, and made the Quick-Start wallet-agnostic.
+- Batch 6.3.12: README heading correction — "Why This Game Breaks on a Transparent Blockchain" (which read as if the game itself were broken) is now "Why Transparent Blockchains Break Games Like This".
+- Batch 6.3.13: added the standard MIT `LICENSE` file (copyright 0xrard) — the README declared MIT but the repository carried no license file, a gap found by the full re-scan of 23 November.
 
 ## Verification at freeze time
 

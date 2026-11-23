@@ -12,7 +12,7 @@
 
 ---
 
-## Why This Game Breaks on a Transparent Blockchain
+## Why Transparent Blockchains Break Games Like This
 
 On a public blockchain, simultaneous strategy games suffer from two fatal flaws:
 1. **Last-Block Sniping:** If crew allocations are visible in the mempool or contract state, the second player always counters the first.

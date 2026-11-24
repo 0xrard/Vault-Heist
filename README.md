@@ -38,7 +38,7 @@ On a public blockchain, simultaneous strategy games suffer from two fatal flaws:
 
 ## Judge Quick-Start (Under 2 Minutes on Sepolia)
 
-1. Open the Live Demo (link above) and connect a Web3 wallet (MetaMask, Rabby, or any injected wallet) on **Ethereum Sepolia**.
+1. Open the Live Demo (link above) and connect a Web3 wallet (MetaMask, Rabby, or any injected wallet) on **Ethereum Sepolia**. You will need a small amount of Sepolia ETH for gas.
 2. Click **"Start Solo vs Syndicate AI"** (no second wallet required).
 3. *(Optional)* Click **Scout Loot (-1 Agent)** or **Scout Alarm (-1 Agent)** on any vault, confirm the transaction, and sign the gas-free **EIP-712** prompt to privately decrypt that vault's secret value.
 4. Allocate your agents across Vaults A, B, and C, then click **LOCK IN & START HEIST**.
@@ -93,8 +93,8 @@ expected for a demo and is not a mainnet economic claim.
 
 ## Security & Privacy Trade-offs
 
-This section documents the findings of an internal design audit (2026-11-21:
-Gemini audit + Muse verification against the deployed contract source). This is
+This section documents the findings of an internal design and source-code
+review (2026-11-21) against the deployed contract source. This is
 **not** an external audit. The contract is unaudited; the disclaimer at the top
 of this README stands.
 
@@ -148,7 +148,7 @@ completed end-to-end onchain, including `RewardsMinted`. Proof: the Match #1
 final-round transaction on Sepolia Etherscan,
 [0x91958806…a67a](https://sepolia.etherscan.io/tx/0x91958806cad839da7e813eef38acb67911b1358f4427c0a5cb4b3ac4837ae67a),
 contains the round-3 `RoundResolved`, the `RewardsMinted` event, and the cLOOT
-mint to the winner in a single transaction. It is the submitted
+mint to the human player (Match #1 was a Solo match) in a single transaction. It is the submitted
 version for this campaign, and no redeploy is planned (see Project Scope &
 Deployment above). The limitations listed here are documented openly rather
 than fixed by disturbing a verified, working deployment.
@@ -181,6 +181,8 @@ vault-heist/
 ```
 
 ## Local Setup & Testing
+
+**Prerequisites:** Node.js 20+ and npm.
 
 ### 1. Smart Contract & FHEVM Unit Tests
 

@@ -7,8 +7,8 @@
 > **Live Demo (Sepolia):** [https://vault-heist-ten.vercel.app/](https://vault-heist-ten.vercel.app/)
 > **Game Contract (Sepolia):** [https://sepolia.etherscan.io/address/0xB3B5966F36c80c8755EA667a0d74749a8306c5A7](https://sepolia.etherscan.io/address/0xB3B5966F36c80c8755EA667a0d74749a8306c5A7)
 > **cLOOT Token — ERC-7984 (Sepolia):** [https://sepolia.etherscan.io/address/0x8475A387a5D9A943975DD2F73819936b98e0320a](https://sepolia.etherscan.io/address/0x8475A387a5D9A943975DD2F73819936b98e0320a)
-> **3-Minute Pitch Video:** [TO BE FILLED — after recording]
-> **X Announcement:** [TO BE FILLED — after posting]
+> **3-Minute Pitch Video:** [https://youtu.be/_m1_7MPto9U](https://youtu.be/_m1_7MPto9U)
+> **X Announcement:** [https://x.com/0xrard/status/2124927798179754260](https://x.com/0xrard/status/2124927798179754260)
 
 ---
 
